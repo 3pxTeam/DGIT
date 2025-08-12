@@ -1,0 +1,1010 @@
+/* macOS 스타일 CSS */
+
+/* macOS 색상 변수 */
+:root {
+  --macos-bg: #1e1e1e;
+  --macos-sidebar: #2d2d2d;
+  --macos-toolbar: #3a3a3a;
+  --macos-accent: #007aff;
+  --macos-success: #34c759;
+  --macos-warning: #ff9500;
+  --macos-danger: #ff3b30;
+  --macos-text: #ffffff;
+  --macos-text-secondary: #8e8e93;
+  --macos-border: #48484a;
+  --macos-hover: #464648;
+  --macos-selection: rgba(0, 122, 255, 0.2);
+  --macos-shadow: rgba(0, 0, 0, 0.3);
+  --macos-radius: 8px;
+  --macos-radius-large: 12px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  background: var(--macos-bg);
+  color: var(--macos-text);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 시작 화면 */
+.start-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.start-content {
+  max-width: 600px;
+  width: 90%;
+  text-align: center;
+}
+
+.start-header {
+  margin-bottom: 40px;
+}
+
+.app-logo {
+  font-size: 80px;
+  color: var(--macos-accent);
+  margin-bottom: 20px;
+}
+
+.start-content h1 {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--macos-text);
+  margin-bottom: 10px;
+}
+
+.start-content p {
+  font-size: 18px;
+  color: var(--macos-text-secondary);
+  margin-bottom: 40px;
+}
+
+.start-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.start-btn {
+  background: var(--macos-accent);
+  border: none;
+  border-radius: var(--macos-radius-large);
+  color: white;
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.start-btn:hover {
+  background: #0056cc;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 122, 255, 0.3);
+}
+
+.recent-projects {
+  text-align: left;
+}
+
+.recent-projects h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--macos-text);
+  margin-bottom: 16px;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-item {
+  background: var(--macos-sidebar);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recent-item:hover {
+  background: var(--macos-hover);
+  border-color: var(--macos-accent);
+}
+
+.recent-info {
+  flex: 1;
+}
+
+.recent-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--macos-text);
+  margin-bottom: 4px;
+}
+
+.recent-path {
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.recent-remove {
+  background: transparent;
+  border: none;
+  color: var(--macos-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.recent-remove:hover {
+  background: var(--macos-danger);
+  color: white;
+}
+
+/* macOS 스타일 타이틀바 */
+.titlebar {
+  height: 28px;
+  background: var(--macos-toolbar);
+  border-bottom: 1px solid var(--macos-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  -webkit-app-region: drag;
+  position: relative;
+}
+
+.traffic-lights {
+  display: flex;
+  gap: 8px;
+  position: absolute;
+  left: 12px;
+  -webkit-app-region: no-drag;
+  z-index: 1000;
+}
+
+.traffic-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.traffic-light:hover {
+  transform: scale(1.1);
+}
+
+.traffic-light.close { 
+  background: #ff5f57; 
+}
+
+.traffic-light.close:hover {
+  background: #ff3b30;
+}
+
+.traffic-light.minimize { 
+  background: #ffbd2e; 
+}
+
+.traffic-light.minimize:hover {
+  background: #ff9500;
+}
+
+.traffic-light.maximize { 
+  background: #28ca42; 
+}
+
+.traffic-light.maximize:hover {
+  background: #34c759;
+}
+
+.titlebar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--macos-text);
+}
+
+/* 앱 컨테이너 */
+.app-container {
+  height: calc(100vh - 28px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* macOS 스타일 툴바 */
+.toolbar {
+  height: 52px;
+  background: var(--macos-toolbar);
+  border-bottom: 1px solid var(--macos-border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--macos-border);
+  margin: 0 8px;
+}
+
+/* macOS 스타일 버튼 */
+.btn {
+  background: var(--macos-hover);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  color: var(--macos-text);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  outline: none;
+}
+
+.btn:hover {
+  background: #525254;
+  border-color: #606062;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn.primary {
+  background: var(--macos-accent);
+  border-color: var(--macos-accent);
+  color: white;
+}
+
+.btn.primary:hover {
+  background: #0056cc;
+  border-color: #0056cc;
+}
+
+.btn.success {
+  background: var(--macos-success);
+  border-color: var(--macos-success);
+  color: white;
+}
+
+.btn.success:hover {
+  background: #248a3d;
+  border-color: #248a3d;
+}
+
+.btn.warning {
+  background: var(--macos-warning);
+  border-color: var(--macos-warning);
+  color: white;
+}
+
+.btn.danger {
+  background: var(--macos-danger);
+  border-color: var(--macos-danger);
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--macos-text-secondary);
+  font-size: 12px;
+  padding: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.btn-icon:hover {
+  color: var(--macos-text);
+}
+
+/* 메인 콘텐츠 */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* macOS 스타일 사이드바 */
+.sidebar {
+  width: 260px;
+  background: var(--macos-sidebar);
+  border-right: 1px solid var(--macos-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--macos-border);
+}
+
+.project-path {
+  background: var(--macos-bg);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  word-break: break-all;
+  line-height: 1.4;
+  max-height: 60px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.project-path.empty {
+  font-style: italic;
+  text-align: center;
+  color: #666;
+}
+
+/* 사이드바 네비게이션 */
+.sidebar-nav {
+  flex: 1;
+  padding: 12px;
+}
+
+.nav-section {
+  margin-bottom: 20px;
+}
+
+.nav-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--macos-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--macos-radius);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  border: none;
+  background: none;
+  color: var(--macos-text);
+  width: 100%;
+  text-align: left;
+}
+
+.nav-item:hover {
+  background: var(--macos-hover);
+}
+
+.nav-item.active {
+  background: var(--macos-selection);
+  color: var(--macos-accent);
+}
+
+.nav-item i {
+  width: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* 콘텐츠 영역 */
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--macos-bg);
+  overflow: hidden;
+}
+
+.view {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.view.active {
+  display: flex;
+}
+
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.view-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--macos-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 상태 뷰 */
+.status-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.welcome-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  color: var(--macos-text-secondary);
+}
+
+.welcome-icon {
+  font-size: 64px;
+  color: var(--macos-accent);
+  margin-bottom: 20px;
+}
+
+.welcome-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--macos-text);
+  margin-bottom: 8px;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: var(--macos-text-secondary);
+  margin-bottom: 20px;
+}
+
+/* 파일 리스트 */
+.file-list-container {
+  flex: 1;
+  background: var(--macos-sidebar);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius-large);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-list-header {
+  background: var(--macos-toolbar);
+  border-bottom: 1px solid var(--macos-border);
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--macos-text);
+}
+
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.file-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--macos-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: text;
+}
+
+.file-list-item:hover {
+  background: var(--macos-hover);
+}
+
+.file-list-item.selected {
+  background: var(--macos-selection);
+}
+
+.file-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+}
+
+.file-icon.psd { background: #31A8FF; }
+.file-icon.ai { background: #FF9A00; }
+.file-icon.sketch { background: #FDB300; }
+.file-icon.fig { background: #F24E1E; }
+.file-icon.xd { background: #FF61F6; }
+.file-icon.unknown { background: #8E8E93; }
+
+.file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--macos-text);
+}
+
+.file-details {
+  font-size: 11px;
+  color: var(--macos-text-secondary);
+}
+
+.file-status {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.file-status.modified {
+  background: rgba(255, 149, 0, 0.2);
+  color: var(--macos-warning);
+}
+
+.file-status.new {
+  background: rgba(52, 199, 89, 0.2);
+  color: var(--macos-success);
+}
+
+.file-status.deleted {
+  background: rgba(255, 59, 48, 0.2);
+  color: var(--macos-danger);
+}
+
+/* 히스토리 */
+.history-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  color: var(--macos-text);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--macos-text-secondary);
+  font-style: italic;
+  padding: 40px;
+}
+
+/* 커밋 블록 스타일 */
+.commit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.commit-item {
+  background: var(--macos-sidebar);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius-large);
+  padding: 20px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.commit-item:hover {
+  border-color: var(--macos-accent);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+}
+
+.commit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.commit-hash {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: var(--macos-accent);
+  background: rgba(0, 122, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.commit-date {
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+}
+
+.commit-message {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--macos-text);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.commit-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+}
+
+.commit-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.commit-stat.added { color: var(--macos-success); }
+.commit-stat.modified { color: var(--macos-warning); }
+.commit-stat.deleted { color: var(--macos-danger); }
+
+
+/* 버전 리스트 스타일 */
+.version-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  background: var(--macos-bg);
+}
+
+.version-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--macos-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.version-item:hover {
+  background: var(--macos-hover);
+}
+
+.version-item.selected {
+  background: var(--macos-selection);
+  color: var(--macos-accent);
+}
+
+.version-item:last-child {
+  border-bottom: none;
+}
+
+.version-info {
+  flex: 1;
+}
+
+.version-number {
+  font-weight: 600;
+  color: var(--macos-accent);
+}
+
+.version-message {
+  font-size: 13px;
+  color: var(--macos-text);
+  margin: 2px 0;
+}
+
+.version-date {
+  font-size: 11px;
+  color: var(--macos-text-secondary);
+}
+
+.version-hash {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 10px;
+  color: var(--macos-text-secondary);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+
+/* 설정 */
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.setting-group {
+  margin-bottom: 24px;
+}
+
+.setting-card {
+  background: var(--macos-sidebar);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius-large);
+  padding: 20px;
+}
+
+.setting-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--macos-text);
+  margin-bottom: 16px;
+}
+
+.setting-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--macos-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--macos-text);
+}
+
+/* 터미널 */
+.terminal-wrapper {
+  height: 200px;
+  background: var(--macos-sidebar);
+  border-top: 1px solid var(--macos-border);
+  display: flex;
+  flex-direction: column;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+.terminal-wrapper.terminal-hidden {
+  height: 32px;
+  overflow: hidden;
+}
+
+.terminal-header {
+  height: 32px;
+  background: var(--macos-toolbar);
+  border-bottom: 1px solid var(--macos-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.terminal-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--macos-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.terminal-area {
+  flex: 1;
+  overflow: hidden;
+}
+
+.terminal-content {
+  height: 100%;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--macos-text);
+  overflow-y: auto;
+  background: #1a1a1a;
+}
+
+.terminal-line {
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.terminal-line .timestamp {
+  color: var(--macos-text-secondary);
+}
+
+/* 모달 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal {
+  background: var(--macos-sidebar);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius-large);
+  min-width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 20px 40px var(--macos-shadow);
+}
+
+.modal-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--macos-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--macos-text);
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--macos-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: var(--macos-text);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.text-input {
+  width: 100%;
+  background: var(--macos-bg);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 8px 12px;
+  color: var(--macos-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.text-input:focus {
+  border-color: var(--macos-accent);
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 220px;
+  }
+  
+  .toolbar {
+    padding: 0 12px;
+  }
+  
+  .view {
+    padding: 16px;
+  }
+}
