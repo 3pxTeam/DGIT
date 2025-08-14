@@ -158,15 +158,24 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
-  // macOS 전용 설정
-  if (process.platform === "darwin") {
-    // 독 아이콘 설정 (있는 경우에만)
-    const iconPath = path.join(__dirname, "assets", "icon.icns");
-    if (fs.existsSync(iconPath)) {
-      app.dock.setIcon(iconPath);
-      mainWindow.setIcon(iconPath);
+  // 🎯 윈도우 로드 완료 후 아이콘 설정
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (process.platform === "darwin") {
+      // ICNS 대신 PNG 사용
+      const pngIconPath = path.join(__dirname, "assets", "icon.png");
+      console.log("🔍 PNG 아이콘 경로:", pngIconPath);
+      console.log("🔍 PNG 파일 존재:", fs.existsSync(pngIconPath));
+      
+      if (fs.existsSync(pngIconPath)) {
+        try {
+          app.dock.setIcon(pngIconPath);
+          console.log("✅ PNG 독 아이콘 설정 완료!");
+        } catch (error) {
+          console.log("❌ PNG 독 아이콘 설정 실패:", error.message);
+        }
+      }
     }
-  }
+  });
 
   // 윈도우 설정
   if (process.platform === "win32") {

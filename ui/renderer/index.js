@@ -432,7 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // 커밋 히스토리 파싱 및 렌더링
+  // 커밋 히스토리 파싱 및 렌더링 (수정된 버전)
   function parseCommitHistory(logOutput) {
     if (!logOutput || logOutput.trim() === '') {
       return [];
@@ -442,35 +442,62 @@ document.addEventListener("DOMContentLoaded", () => {
     const lines = logOutput.split('\n');
     let currentCommit = null;
 
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
       if (line.startsWith('commit ')) {
+        // 이전 커밋이 있으면 배열에 추가
         if (currentCommit) {
           commits.push(currentCommit);
         }
-        const hash = line.split(' ')[1];
+        
+        // 새 커밋 객체 생성
+        const parts = line.split(' ');
+        const hash = parts[1];
         currentCommit = {
           hash: hash ? hash.substring(0, 8) : 'unknown',
-          fullHash: hash || 'unknown',
-          message: '',
-          date: '',
-          author: '',
-          stats: { added: 0, modified: 0, deleted: 0 }
+          message: '커밋 메시지 없음',
+          date: new Date().toISOString(),
+          stats: {
+            added: 0,
+            modified: 0,
+            deleted: 0
+          }
         };
-      } else if (line.startsWith('Date: ') && currentCommit) {
-        currentCommit.date = line.substring(6).trim();
-      } else if (line.startsWith('Author: ') && currentCommit) {
-        currentCommit.author = line.substring(8).trim();
-      } else if (line.trim() && !line.startsWith(' ') && currentCommit && !currentCommit.message) {
-        currentCommit.message = line.trim();
+      }
+      else if (currentCommit) {
+        // Author 라인 처리
+        if (line.startsWith('Author: ')) {
+          currentCommit.author = line.replace('Author: ', '');
+        }
+        // Date 라인 처리
+        else if (line.startsWith('Date: ')) {
+          currentCommit.date = line.replace('Date: ', '');
+        }
+        // 커밋 메시지 처리 (4개의 공백으로 시작하는 라인)
+        else if (line.startsWith('    ') && !line.includes('Files:') && !line.includes('[v')) {
+          const message = line.trim();
+          if (message && message !== '') {
+            currentCommit.message = message;
+          }
+        }
+        // Files 라인에서 통계 추출
+        else if (line.includes('Files: ')) {
+          const match = line.match(/Files: (\d+)/);
+          if (match) {
+            currentCommit.stats.modified = parseInt(match[1]);
+          }
+        }
       }
     }
 
-    if (currentCommit) {
-      commits.push(currentCommit);
-    }
-
-    return commits;
+  // 마지막 커밋 추가
+  if (currentCommit) {
+    commits.push(currentCommit);
   }
+
+  return commits;
+}
 
   function renderCommitHistory(commits) {
     if (commits.length === 0) {
