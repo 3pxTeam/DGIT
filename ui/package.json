@@ -1,12 +1,14 @@
 {
   "name": "dgit-ui",
-  "version": "1.0.0",
+  "version": "1.0.0-beta",
   "description": "DGit GUI - Design File Version Control",
   "main": "main.js",
   "scripts": {
     "start": "npx electron .",
     "dev": "npx electron . --dev",
     "build": "electron-builder",
+    "build-zip": "electron-builder --mac zip",
+    "postbuild": "xattr -cr dist/mac/DGit.app || true",
     "pack": "electron-builder --dir",
     "clean": "rm -rf dist node_modules package-lock.json",
     "reinstall": "npm run clean && npm install"
@@ -41,9 +43,15 @@
       }
     ],
     "mac": {
+      "identity": null,
+      "gatekeeperAssess": false,
       "category": "public.app-category.developer-tools",
       "icon": "assets/icon.icns",
       "target": [
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        },
         {
           "target": "dmg",
           "arch": ["x64", "arm64"]
