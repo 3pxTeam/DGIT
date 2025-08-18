@@ -1008,3 +1008,296 @@ body, html {
     padding: 16px;
   }
 }
+
+/* 초기화 모달 스타일 */
+.init-modal {
+  min-width: 500px;
+}
+
+.init-modal-header {
+  text-align: center;
+  padding: 24px 24px 16px;
+}
+
+.init-modal-icon {
+  font-size: 48px;
+  color: var(--macos-accent);
+  margin-bottom: 16px;
+}
+
+.init-modal-subtitle {
+  font-size: 14px;
+  color: var(--macos-text-secondary);
+  margin-top: 8px;
+}
+
+.init-info-card {
+  background: var(--macos-bg);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.init-info-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.init-info-item:last-child {
+  margin-bottom: 0;
+}
+
+.init-info-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--macos-success);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.init-info-text {
+  font-size: 14px;
+  color: var(--macos-text);
+  line-height: 1.4;
+}
+
+.init-path-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--macos-text);
+  margin-bottom: 8px;
+}
+
+.init-path-display {
+  background: var(--macos-bg);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 12px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  word-break: break-all;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+/* 프로젝트 상태 인디케이터 */
+.project-path-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-path-text {
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  font-family: 'SF Mono', Monaco, monospace;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.project-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: flex-start;
+}
+
+.project-status-indicator.not-initialized {
+  background: rgba(255, 149, 0, 0.1);
+  color: var(--macos-warning);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+}
+
+.project-status-indicator.initialized {
+  background: rgba(52, 199, 89, 0.1);
+  color: var(--macos-success);
+  border: 1px solid rgba(52, 199, 89, 0.2);
+}
+
+.project-status-indicator.checking {
+  background: rgba(142, 142, 147, 0.1);
+  color: var(--macos-text-secondary);
+  border: 1px solid rgba(142, 142, 147, 0.2);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* 초기화 안내 패널 */
+.init-guide-panel {
+  background: linear-gradient(135deg, rgba(0, 122, 255, 0.05) 0%, rgba(0, 122, 255, 0.02) 100%);
+  border: 1px solid rgba(0, 122, 255, 0.1);
+  border-radius: var(--macos-radius-large);
+  padding: 24px;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.init-guide-icon {
+  font-size: 48px;
+  color: var(--macos-accent);
+  margin-bottom: 16px;
+}
+
+.init-guide-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--macos-text);
+  margin-bottom: 12px;
+}
+
+.init-guide-description {
+  font-size: 14px;
+  color: var(--macos-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 20px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 프로젝트 경로 개선 */
+.project-path {
+  background: var(--macos-bg);
+  border: 1px solid var(--macos-border);
+  border-radius: var(--macos-radius);
+  padding: 12px;
+  font-size: 12px;
+  color: var(--macos-text-secondary);
+  word-break: break-all;
+  line-height: 1.4;
+  max-height: 80px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.project-path.empty {
+  font-style: italic;
+  text-align: center;
+  color: #666;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* 애니메이션 개선 */
+.init-modal {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 버튼 상태 개선 */
+.btn.loading {
+  position: relative;
+  color: transparent;
+}
+
+.btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 상태 카드 개선 */
+.status-content .setting-card {
+  margin-bottom: 16px;
+}
+
+.status-content .setting-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 터미널 메시지 타입별 스타일 */
+.terminal-line.success {
+  color: var(--macos-success);
+}
+
+.terminal-line.warning {
+  color: var(--macos-warning);
+}
+
+.terminal-line.error {
+  color: var(--macos-danger);
+}
+
+/* 반응형 개선 */
+@media (max-width: 768px) {
+  .init-modal {
+    min-width: 90vw;
+    margin: 20px;
+  }
+  
+  .init-guide-panel {
+    padding: 20px 16px;
+  }
+  
+  .project-path-info {
+    gap: 6px;
+  }
+  
+  .project-status-indicator {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+}
+
+/* 접근성 개선 */
+.btn:focus,
+.modal-close:focus {
+  outline: 2px solid var(--macos-accent);
+  outline-offset: 2px;
+}
+
+.project-status-indicator:focus {
+  outline: 1px solid var(--macos-accent);
+  outline-offset: 1px;
+}
+
+/* 다크 모드 대응 개선 */
+@media (prefers-color-scheme: dark) {
+  .init-guide-panel {
+    background: linear-gradient(135deg, rgba(0, 122, 255, 0.08) 0%, rgba(0, 122, 255, 0.03) 100%);
+  }
+}

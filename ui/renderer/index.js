@@ -46,6 +46,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmCommitBtn = document.getElementById("confirmCommitBtn");
   const modalCloseBtns = document.querySelectorAll(".modal-close");
 
+  // 초기화 모달 (수정된 부분)
+  const initModal = document.getElementById("initModal");
+  const initProjectPath = document.getElementById("initProjectPath");
+  const cancelInitBtn = document.getElementById("cancelInitBtn");
+  const confirmInitModalBtn = document.getElementById("confirmInitModalBtn");
+
   // 전역 상태
   let currentProjectPath = null;
   let selectedFilePath = null;
@@ -69,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.electronAPI.windowMaximize();
   });
 
-  // 시작 화면으로 돌아가기 함수
+  // 시작 화면으로 돌아가기 함수 (수정된 버전)
   async function returnToStartScreen() {
     // 상태 초기화
     currentProjectPath = null;
@@ -86,7 +92,10 @@ document.addEventListener("DOMContentLoaded", () => {
     disableProjectButtons();
     restoreBtn.disabled = true;
     openExplorerBtn.disabled = true;
-    initRepoBtn.style.display = "none";
+    
+    // ⭐ 초기화 관련 요소들 리셋 추가
+    hideInitModal();
+    hideInitElements();
     
     // 첫 번째 네비게이션 아이템 활성화
     showView('statusView');
@@ -157,12 +166,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // 프로젝트 열기
+  // 프로젝트 열기 함수 (완전히 교체된 버전)
   async function openProject(projectPath) {
     try {
       currentProjectPath = projectPath;
-      currentProjectEl.textContent = projectPath;
-      currentProjectEl.classList.remove('empty');
+      updateProjectPathDisplay(projectPath);
       
       // 최근 프로젝트에 추가
       await window.electronAPI.addRecentProject(projectPath);
@@ -175,25 +183,179 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 저장소 여부 확인
       const isRepo = await window.electronAPI.checkDgitRepo(projectPath);
+      
       if (isRepo) {
         appendTerminalLine(".dgit 저장소가 존재합니다.");
-        enableProjectButtons();
-        await updateProjectStatus();
-        await loadFileList();
-        await refreshCommitHistory();
+        await initializeExistingProject();
       } else {
         appendTerminalLine(".dgit 저장소가 없습니다.");
-        initRepoBtn.style.display = "inline-flex";
-        disableProjectButtons();
+        showInitializationRequired();
       }
 
-      // 프로젝트 바뀌면 파일 목록도 초기화 및 버튼 비활성화
-      fileList.innerHTML = "";
+      // 파일 선택 상태 초기화
       selectedFilePath = null;
       restoreBtn.disabled = true;
       openExplorerBtn.disabled = true;
+      
     } catch (error) {
-      appendTerminalLine(`에러: 프로젝트 열기 실패 - ${error.message || error}`);
+      appendTerminalLine(`오류: 프로젝트 열기 실패 - ${error.message || error}`);
+    }
+  }
+
+  // 프로젝트 경로 표시 업데이트 함수 (새로 추가)
+  function updateProjectPathDisplay(projectPath) {
+    currentProjectEl.innerHTML = `
+      <div class="project-path-info">
+        <div class="project-path-text">${projectPath}</div>
+        <div class="project-status-indicator checking" id="projectStatusIndicator">
+          <div class="status-dot"></div>
+          <span>확인 중...</span>
+        </div>
+      </div>
+    `;
+    currentProjectEl.classList.remove('empty');
+  }
+
+  // 초기화 필요 상태 표시 함수 (새로 추가)
+  function showInitializationRequired() {
+    // 상태 인디케이터 업데이트
+    const statusIndicator = document.getElementById("projectStatusIndicator");
+    if (statusIndicator) {
+      statusIndicator.className = "project-status-indicator not-initialized";
+      statusIndicator.innerHTML = `
+        <div class="status-dot"></div>
+        <span>초기화 필요</span>
+      `;
+    }
+
+    // 프로젝트 버튼들 비활성화
+    disableProjectButtons();
+    
+    // 초기화 안내 패널 표시
+    showInitGuidePanel();
+    
+    // 1.5초 후 초기화 모달 자동 표시
+    setTimeout(() => {
+      showInitModal();
+    }, 1500);
+  }
+
+  // 초기화 완료 상태 표시 함수 (새로 추가)
+  function showInitializationComplete() {
+    const statusIndicator = document.getElementById("projectStatusIndicator");
+    if (statusIndicator) {
+      statusIndicator.className = "project-status-indicator initialized";
+      statusIndicator.innerHTML = `
+        <div class="status-dot"></div>
+        <span>DGit 저장소</span>
+      `;
+    }
+    hideInitElements();
+  }
+
+  // 초기화 안내 패널 표시 함수 (새로 추가)
+  function showInitGuidePanel() {
+    const guidePanel = document.createElement('div');
+    guidePanel.id = 'initGuidePanel';
+    guidePanel.className = 'init-guide-panel';
+    guidePanel.innerHTML = `
+      <div class="init-guide-icon">
+        <i class="fas fa-rocket"></i>
+      </div>
+      <div class="init-guide-title">DGit 저장소 초기화가 필요합니다</div>
+      <div class="init-guide-description">
+        이 프로젝트는 아직 DGit으로 관리되지 않고 있습니다.<br>
+        초기화를 통해 디자인 파일의 버전 관리를 시작하세요.
+      </div>
+      <button class="btn primary" onclick="showInitModal()">
+        <i class="fas fa-plus-circle"></i>
+        지금 초기화하기
+      </button>
+    `;
+    
+    statusContent.innerHTML = '';
+    statusContent.appendChild(guidePanel);
+  }
+
+  // 기존 프로젝트 초기화 함수 (새로 추가)
+  async function initializeExistingProject() {
+    showInitializationComplete();
+    enableProjectButtons();
+    await updateProjectStatus();
+    await loadFileList();
+    await refreshCommitHistory();
+  }
+
+  // 초기화 모달 표시 함수 (새로 추가)
+  function showInitModal() {
+    if (initProjectPath && currentProjectPath) {
+      initProjectPath.textContent = currentProjectPath;
+    }
+    if (initModal) {
+      initModal.classList.add("active");
+    }
+  }
+
+  // 초기화 모달 숨김 함수 (새로 추가)
+  function hideInitModal() {
+    if (initModal) {
+      initModal.classList.remove("active");
+    }
+    // 버튼 상태 초기화
+    if (confirmInitModalBtn) {
+      confirmInitModalBtn.disabled = false;
+      confirmInitModalBtn.innerHTML = '<i class="fas fa-rocket"></i> 초기화 시작';
+    }
+  }
+
+  // 초기화 실행 함수 (새로 추가)
+  async function performInitialization() {
+    if (!currentProjectPath) return;
+    
+    try {
+      // 버튼 상태 변경
+      if (confirmInitModalBtn) {
+        confirmInitModalBtn.disabled = true;
+        confirmInitModalBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 초기화 중...';
+      }
+      
+      appendTerminalLine("DGit 저장소 초기화 시작...");
+      
+      // DGit 초기화 실행
+      const result = await window.electronAPI.executeDgitCommand("init", [], currentProjectPath);
+      appendTerminalLine(`저장소 초기화 성공: ${result}`);
+      
+      // 성공 상태 표시
+      if (confirmInitModalBtn) {
+        confirmInitModalBtn.innerHTML = '<i class="fas fa-check"></i> 완료!';
+      }
+      
+      // 1.5초 후 모달 닫고 프로젝트 초기화
+      setTimeout(async () => {
+        hideInitModal();
+        await initializeExistingProject();
+      }, 1500);
+      
+    } catch (error) {
+      const errorMsg = parseErrorMessage(error);
+      appendTerminalLine(`저장소 초기화 실패: ${errorMsg}`);
+      
+      // 오류 상태 표시
+      if (confirmInitModalBtn) {
+        confirmInitModalBtn.disabled = false;
+        confirmInitModalBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 다시 시도';
+      }
+    }
+  }
+
+  // 초기화 요소들 숨김 함수 (새로 추가)
+  function hideInitElements() {
+    if (initRepoBtn) {
+      initRepoBtn.style.display = "none";
+    }
+    const guidePanel = document.getElementById('initGuidePanel');
+    if (guidePanel) {
+      guidePanel.remove();
     }
   }
 
@@ -491,13 +653,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-  // 마지막 커밋 추가
-  if (currentCommit) {
-    commits.push(currentCommit);
-  }
+    // 마지막 커밋 추가
+    if (currentCommit) {
+      commits.push(currentCommit);
+    }
 
-  return commits;
-}
+    return commits;
+  }
 
   function renderCommitHistory(commits) {
     if (commits.length === 0) {
@@ -702,20 +864,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  initRepoBtn.addEventListener("click", async () => {
-    if (!currentProjectPath) return alert("프로젝트를 먼저 선택하세요.");
-    try {
-      appendTerminalLine("DGit 저장소 초기화 중...");
-      const result = await window.electronAPI.executeDgitCommand("init", [], currentProjectPath);
-      appendTerminalLine(`저장소 초기화 성공: ${result}`);
-      initRepoBtn.style.display = "none";
-      enableProjectButtons();
-      await updateProjectStatus();
-    } catch (e) {
-      const errorMsg = parseErrorMessage(e);
-      appendTerminalLine(`저장소 초기화 실패: ${errorMsg}`);
-    }
-  });
+  // 초기화 버튼 이벤트 (수정된 부분)
+  initRepoBtn.addEventListener("click", showInitModal);
 
   scanBtn.addEventListener("click", async () => {
     if (!currentProjectPath) return alert("프로젝트를 먼저 선택하세요.");
@@ -820,133 +970,133 @@ document.addEventListener("DOMContentLoaded", () => {
   refreshLogBtn.addEventListener("click", refreshCommitHistory);
 
   // 복원 모달 관련 요소들 추가 (DOM 요소 선언 부분에)
-const restoreModal = document.getElementById("restoreModal");
-const restoreFileName = document.getElementById("restoreFileName");
-const versionList = document.getElementById("versionList");
-const cancelRestoreBtn = document.getElementById("cancelRestoreBtn");
-const confirmRestoreBtn = document.getElementById("confirmRestoreBtn");
+  const restoreModal = document.getElementById("restoreModal");
+  const restoreFileName = document.getElementById("restoreFileName");
+  const versionList = document.getElementById("versionList");
+  const cancelRestoreBtn = document.getElementById("cancelRestoreBtn");
+  const confirmRestoreBtn = document.getElementById("confirmRestoreBtn");
 
-let selectedVersion = null;
-let currentRestoreFile = null;
+  let selectedVersion = null;
+  let currentRestoreFile = null;
 
-// 복원 모달 닫기 함수
-function closeRestoreModal() {
-  restoreModal.classList.remove("active");
-  selectedVersion = null;
-  currentRestoreFile = null;
-  versionList.innerHTML = "";
-  confirmRestoreBtn.disabled = true;
-}
-
-// 복원 버튼 이벤트
-restoreBtn.addEventListener("click", async () => {
-  if (!currentProjectPath) return alert("프로젝트를 먼저 선택하세요.");
-  if (!selectedFilePath) return alert("복원할 파일을 선택하세요.");
-
-  try {
-    const relativeFilePath = selectedFilePath.replace(currentProjectPath + "/", "");
-    currentRestoreFile = relativeFilePath;
-    
-    // 커밋 히스토리에서 버전 목록 가져오기
-    appendTerminalLine("사용 가능한 버전을 확인하는 중...");
-    const log = await window.electronAPI.executeDgitCommand("log", [], currentProjectPath);
-    const commits = parseCommitHistory(log);
-
-    if (commits.length === 0) {
-      appendTerminalLine("복원할 버전이 없습니다. 먼저 커밋을 만드세요.");
-      return;
-    }
-
-    const availableVersions = commits.map((commit, index) => ({
-      version: commits.length - index, // 최신이 가장 높은 번호
-      hash: commit.hash,
-      message: commit.message || '커밋 메시지 없음',
-      date: getRelativeDate(commit.date)
-    }));
-
-    // 모달에 파일명과 버전 목록 표시
-    restoreFileName.textContent = relativeFilePath;
+  // 복원 모달 닫기 함수
+  function closeRestoreModal() {
+    restoreModal.classList.remove("active");
+    selectedVersion = null;
+    currentRestoreFile = null;
     versionList.innerHTML = "";
+    confirmRestoreBtn.disabled = true;
+  }
 
-    availableVersions.forEach(version => {
-      const versionItem = document.createElement('div');
-      versionItem.className = 'version-item';
-      versionItem.dataset.version = version.version;
+  // 복원 버튼 이벤트
+  restoreBtn.addEventListener("click", async () => {
+    if (!currentProjectPath) return alert("프로젝트를 먼저 선택하세요.");
+    if (!selectedFilePath) return alert("복원할 파일을 선택하세요.");
+
+    try {
+      const relativeFilePath = selectedFilePath.replace(currentProjectPath + "/", "");
+      currentRestoreFile = relativeFilePath;
       
-      versionItem.innerHTML = `
-        <div class="version-info">
-          <div class="version-number">버전 ${version.version}</div>
-          <div class="version-message">${version.message}</div>
-          <div class="version-date">${version.date}</div>
-        </div>
-        <div class="version-hash">${version.hash}</div>
-      `;
+      // 커밋 히스토리에서 버전 목록 가져오기
+      appendTerminalLine("사용 가능한 버전을 확인하는 중...");
+      const log = await window.electronAPI.executeDgitCommand("log", [], currentProjectPath);
+      const commits = parseCommitHistory(log);
 
-      versionItem.addEventListener('click', () => {
-        // 기존 선택 해제
-        versionList.querySelectorAll('.version-item').forEach(item => {
-          item.classList.remove('selected');
-        });
+      if (commits.length === 0) {
+        appendTerminalLine("복원할 버전이 없습니다. 먼저 커밋을 만드세요.");
+        return;
+      }
+
+      const availableVersions = commits.map((commit, index) => ({
+        version: commits.length - index, // 최신이 가장 높은 번호
+        hash: commit.hash,
+        message: commit.message || '커밋 메시지 없음',
+        date: getRelativeDate(commit.date)
+      }));
+
+      // 모달에 파일명과 버전 목록 표시
+      restoreFileName.textContent = relativeFilePath;
+      versionList.innerHTML = "";
+
+      availableVersions.forEach(version => {
+        const versionItem = document.createElement('div');
+        versionItem.className = 'version-item';
+        versionItem.dataset.version = version.version;
         
-        // 새로운 선택
-        versionItem.classList.add('selected');
-        selectedVersion = version.version;
-        confirmRestoreBtn.disabled = false;
+        versionItem.innerHTML = `
+          <div class="version-info">
+            <div class="version-number">버전 ${version.version}</div>
+            <div class="version-message">${version.message}</div>
+            <div class="version-date">${version.date}</div>
+          </div>
+          <div class="version-hash">${version.hash}</div>
+        `;
+
+        versionItem.addEventListener('click', () => {
+          // 기존 선택 해제
+          versionList.querySelectorAll('.version-item').forEach(item => {
+            item.classList.remove('selected');
+          });
+          
+          // 새로운 선택
+          versionItem.classList.add('selected');
+          selectedVersion = version.version;
+          confirmRestoreBtn.disabled = false;
+        });
+
+        versionList.appendChild(versionItem);
       });
 
-      versionList.appendChild(versionItem);
-    });
+      // 모달 표시
+      restoreModal.classList.add("active");
+      
+    } catch (e) {
+      appendTerminalLine(`버전 목록 확인 실패: ${parseErrorMessage(e)}`);
+    }
+  });
 
-    // 모달 표시
-    restoreModal.classList.add("active");
-    
-  } catch (e) {
-    appendTerminalLine(`버전 목록 확인 실패: ${parseErrorMessage(e)}`);
-  }
-});
+  // 복원 취소 버튼
+  cancelRestoreBtn.addEventListener("click", closeRestoreModal);
 
-// 복원 취소 버튼
-cancelRestoreBtn.addEventListener("click", closeRestoreModal);
+  // 복원 확인 버튼
+  confirmRestoreBtn.addEventListener("click", async () => {
+    if (!selectedVersion || !currentRestoreFile) return;
 
-// 복원 확인 버튼
-confirmRestoreBtn.addEventListener("click", async () => {
-  if (!selectedVersion || !currentRestoreFile) return;
+    try {
+      const confirmed = confirm(
+        `"${currentRestoreFile}" 파일을 버전 ${selectedVersion}으로 복원하시겠습니까?\n\n⚠️ 현재 변경사항은 모두 사라집니다.`
+      );
+      
+      if (!confirmed) return;
 
-  try {
-    const confirmed = confirm(
-      `"${currentRestoreFile}" 파일을 버전 ${selectedVersion}으로 복원하시겠습니까?\n\n⚠️ 현재 변경사항은 모두 사라집니다.`
-    );
-    
-    if (!confirmed) return;
+      appendTerminalLine(`파일 복원 시도: v${selectedVersion} → ${currentRestoreFile}`);
+      
+      // DGit restore 명령어 실행
+      const result = await window.electronAPI.executeDgitCommand("restore", [selectedVersion.toString(), currentRestoreFile], currentProjectPath);
+      appendTerminalLine(`복원 성공: ${result || "파일이 복원되었습니다"}`);
+      
+      closeRestoreModal();
+      
+      // 파일 목록 새로고침
+      await loadFileList();
+      
+    } catch (e) {
+      const errorMsg = parseErrorMessage(e);
+      appendTerminalLine(`복원 실패: ${errorMsg}`);
+    }
+  });
 
-    appendTerminalLine(`파일 복원 시도: v${selectedVersion} → ${currentRestoreFile}`);
-    
-    // DGit restore 명령어 실행
-    const result = await window.electronAPI.executeDgitCommand("restore", [selectedVersion.toString(), currentRestoreFile], currentProjectPath);
-    appendTerminalLine(`복원 성공: ${result || "파일이 복원되었습니다"}`);
-    
-    closeRestoreModal();
-    
-    // 파일 목록 새로고침
-    await loadFileList();
-    
-  } catch (e) {
-    const errorMsg = parseErrorMessage(e);
-    appendTerminalLine(`복원 실패: ${errorMsg}`);
-  }
-});
+  // 복원 모달 외부 클릭 시 닫기
+  restoreModal.addEventListener("click", (e) => {
+    if (e.target === restoreModal) {
+      closeRestoreModal();
+    }
+  });
 
-// 복원 모달 외부 클릭 시 닫기
-restoreModal.addEventListener("click", (e) => {
-  if (e.target === restoreModal) {
-    closeRestoreModal();
-  }
-});
-
-// 모달 닫기 버튼들
-document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
-  btn.addEventListener("click", closeRestoreModal);
-});
+  // 모달 닫기 버튼들
+  document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
+    btn.addEventListener("click", closeRestoreModal);
+  });
 
   openExplorerBtn.addEventListener("click", async () => {
     if (!selectedFilePath) return alert("Finder에서 열 파일을 선택하세요.");
@@ -987,7 +1137,29 @@ document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
     }
   });
 
-  // macOS 스타일 키보드 단축키
+  // 초기화 관련 이벤트 리스너들 (새로 추가)
+  if (cancelInitBtn) {
+    cancelInitBtn.addEventListener("click", hideInitModal);
+  }
+  if (confirmInitModalBtn) {
+    confirmInitModalBtn.addEventListener("click", performInitialization);
+  }
+
+  // 초기화 모달 외부 클릭 시 닫기
+  if (initModal) {
+    initModal.addEventListener("click", (e) => {
+      if (e.target === initModal) {
+        hideInitModal();
+      }
+    });
+  }
+
+  // 초기화 모달 닫기 버튼들
+  document.querySelectorAll("#initModal .modal-close").forEach(btn => {
+    btn.addEventListener("click", hideInitModal);
+  });
+
+  // 키보드 이벤트 리스너 (완전히 교체된 버전)
   document.addEventListener("keydown", (e) => {
     if (e.metaKey) { // macOS Command 키
       switch (e.key) {
@@ -1005,7 +1177,7 @@ document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
             refreshStatusBtn.click();
           }
           break;
-        case 'w': // Command+W로 시작 화면 돌아가기
+        case 'w':
           e.preventDefault();
           if (mainApp.style.display !== "none") {
             returnToStartScreen();
@@ -1015,15 +1187,18 @@ document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
           if (commitModal.classList.contains('active')) {
             e.preventDefault();
             confirmCommitBtn.click();
+          } else if (initModal.classList.contains('active')) {
+            e.preventDefault();
+            confirmInitModalBtn.click();
           }
           break;
-        case 'a': // Command+A로 모든 파일 추가
+        case 'a':
           if (!addAllBtn.disabled && mainApp.style.display !== "none") {
             e.preventDefault();
             addAllBtn.click();
           }
           break;
-        case 's': // Command+S로 커밋 (저장 의미)
+        case 's':
           if (!commitBtn.disabled && mainApp.style.display !== "none") {
             e.preventDefault();
             commitBtn.click();
@@ -1033,10 +1208,13 @@ document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
     }
     
     if (e.key === 'Escape') {
-      if (commitModal.classList.contains('active')) {
+      if (initModal.classList.contains('active')) {
+        hideInitModal();
+      } else if (commitModal.classList.contains('active')) {
         closeCommitModal();
+      } else if (restoreModal.classList.contains('active')) {
+        closeRestoreModal();
       } else if (mainApp.style.display !== "none") {
-        // Escape로도 시작 화면 돌아가기
         returnToStartScreen();
       }
     }
@@ -1057,3 +1235,6 @@ document.querySelectorAll("#restoreModal .modal-close").forEach(btn => {
   appendTerminalLine("⌘+O로 프로젝트를 선택하여 시작하세요");
   appendTerminalLine("키보드 단축키: ⌘+A(파일추가), ⌘+S(커밋), ⌘+R(새로고침), ⌘+W(홈으로)");
 });
+
+// 전역 함수로 showInitModal 만들기 (HTML에서 onclick으로 호출하기 위해)
+window.showInitModal = showInitModal;
