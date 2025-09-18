@@ -3,6 +3,7 @@ package commit
 import (
 	"archive/zip"
 	"crypto/sha256"
+	"dgit/internal/scanner/photoshop"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,30 +15,33 @@ import (
 
 	"dgit/internal/scanner"
 	"dgit/internal/staging"
-	
+
 	// Ultra-Fast Compression Libraries
-	"github.com/pierrec/lz4/v4"
 	"github.com/klauspost/compress/zstd"
-	
+	"github.com/pierrec/lz4/v4"
+
 	// Legacy support
 	"github.com/kr/binarydist"
 )
 
+// photoshop 패키지의 DetailedLayer 타입
+type DetailedLayer = photoshop.DetailedLayer
+
 // CompressionResult contains comprehensive compression operation metrics
 // Enhanced for ultra-fast performance tracking and cache optimization
 type CompressionResult struct {
-	Strategy         string    `json:"strategy"`            // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
+	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
 	OutputFile       string    `json:"output_file"`
 	OriginalSize     int64     `json:"original_size"`
 	CompressedSize   int64     `json:"compressed_size"`
 	CompressionRatio float64   `json:"compression_ratio"`
 	BaseVersion      int       `json:"base_version,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
-	
+
 	// Ultra-Fast Performance Metrics - KEY to 225x speed improvement
-	CompressionTime  float64   `json:"compression_time_ms"` // Milliseconds - critical metric
-	CacheLevel       string    `json:"cache_level"`         // "hot", "warm", "cold"
-	SpeedImprovement float64   `json:"speed_improvement"`   // Multiplier vs traditional methods
+	CompressionTime  float64 `json:"compression_time_ms"` // Milliseconds - critical metric
+	CacheLevel       string  `json:"cache_level"`         // "hot", "warm", "cold"
+	SpeedImprovement float64 `json:"speed_improvement"`   // Multiplier vs traditional methods
 }
 
 // Commit represents a single commit in DGit with ultra-fast compression integration
@@ -58,24 +62,24 @@ type Commit struct {
 // CommitManager handles ultra-fast commit creation with 3-tier cache system
 // Achieves 225x speed improvement through intelligent compression strategy selection
 type CommitManager struct {
-	DgitDir              string
-	ObjectsDir           string
-	HeadFile             string
-	ConfigFile           string
-	DeltaDir             string
-	
+	DgitDir    string
+	ObjectsDir string
+	HeadFile   string
+	ConfigFile string
+	DeltaDir   string
+
 	// Ultra-Fast 3-Tier Cache System for 0.2s commits
-	HotCacheDir          string  // LZ4 hot cache for immediate 0.2s access
-	WarmCacheDir         string  // Zstd warm cache for background optimization
-	ColdCacheDir         string  // Archive cold cache for long-term storage
-	
+	HotCacheDir  string // LZ4 hot cache for immediate 0.2s access
+	WarmCacheDir string // Zstd warm cache for background optimization
+	ColdCacheDir string // Archive cold cache for long-term storage
+
 	// Compression optimization settings
 	MaxDeltaChainLength  int
 	CompressionThreshold float64
-	
+
 	// Ultra-Fast compression configuration
-	lz4CompressionLevel  int     // LZ4 level (1 = fastest, 9 = best compression)
-	enableBackgroundOpt  bool    // Enable background optimization to warm/cold cache
+	lz4CompressionLevel int  // LZ4 level (1 = fastest, 9 = best compression)
+	enableBackgroundOpt bool // Enable background optimization to warm/cold cache
 }
 
 // NewCommitManager creates a new ultra-fast commit manager with optimized 3-tier cache
@@ -85,9 +89,9 @@ func NewCommitManager(dgitDir string) *CommitManager {
 	deltaDir := filepath.Join(objectsDir, "deltas")
 
 	// Ultra-Fast 3-Stage Cache System - key to performance breakthrough
-	hotCacheDir := filepath.Join(dgitDir, "cache", "hot")     // 0.2s access with LZ4
-	warmCacheDir := filepath.Join(dgitDir, "cache", "warm")   // 0.5s access with Zstd
-	coldCacheDir := filepath.Join(dgitDir, "cache", "cold")   // 2s access with max compression
+	hotCacheDir := filepath.Join(dgitDir, "cache", "hot")   // 0.2s access with LZ4
+	warmCacheDir := filepath.Join(dgitDir, "cache", "warm") // 0.5s access with Zstd
+	coldCacheDir := filepath.Join(dgitDir, "cache", "cold") // 2s access with max compression
 
 	// Ensure all cache directories exist for optimal performance
 	os.MkdirAll(objectsDir, 0755)
@@ -105,15 +109,15 @@ func NewCommitManager(dgitDir string) *CommitManager {
 		HotCacheDir:          hotCacheDir,
 		WarmCacheDir:         warmCacheDir,
 		ColdCacheDir:         coldCacheDir,
-		MaxDeltaChainLength:  5,      // Prevent delta chains from getting too long
-		CompressionThreshold: 0.3,    // 30% compression ratio threshold
-		lz4CompressionLevel:  1,      // Fastest LZ4 level for 0.2s commits
-		enableBackgroundOpt:  true,   // Enable background optimization for better ratios
+		MaxDeltaChainLength:  5,    // Prevent delta chains from getting too long
+		CompressionThreshold: 0.3,  // 30% compression ratio threshold
+		lz4CompressionLevel:  1,    // Fastest LZ4 level for 0.2s commits
+		enableBackgroundOpt:  true, // Enable background optimization for better ratios
 	}
 
 	// Load any custom configuration overrides
 	cm.loadUltraFastConfig()
-	
+
 	return cm
 }
 
@@ -121,7 +125,7 @@ func NewCommitManager(dgitDir string) *CommitManager {
 // Uses intelligent compression strategy selection and 3-tier cache system
 func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.StagedFile) (*Commit, error) {
 	startTime := time.Now()
-	
+
 	// Validate input
 	if len(stagedFiles) == 0 {
 		return nil, fmt.Errorf("no files staged for commit")
@@ -158,7 +162,7 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 	if err != nil {
 		return nil, fmt.Errorf("ultra-fast snapshot failed: %w", err)
 	}
-	
+
 	commit.CompressionInfo = compressionResult
 	if compressionResult.Strategy == "zip" {
 		commit.SnapshotZip = compressionResult.OutputFile // Legacy compatibility
@@ -178,12 +182,12 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 
 	// Display ultra-fast performance results
 	cm.displayUltraFastCompressionStats(compressionResult, totalTime)
-	
+
 	// Schedule background optimization for better compression ratios (non-blocking)
 	if cm.enableBackgroundOpt && compressionResult.Strategy == "lz4" {
 		go cm.scheduleBackgroundOptimization(newVersion, compressionResult)
 	}
-	
+
 	return commit, nil
 }
 
@@ -191,12 +195,12 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 // Intelligent strategy selection: LZ4 -> Smart Delta -> Fallback
 func (cm *CommitManager) createUltraFastSnapshot(files []*staging.StagedFile, version, prevVersion int, startTime time.Time) (*CompressionResult, error) {
 	// DECISION ENGINE: Choose optimal ultra-fast strategy based on file characteristics
-	
-	// Strategy 1: LZ4 Ultra-Fast (default for 0.2s commits)
+
+	// Strategy 1: LZ4 Ultra-Fast (for appropriate files only)
 	if cm.shouldUseLZ4UltraFast(files, version) {
 		return cm.createLZ4UltraFast(files, version, startTime)
 	}
-	
+
 	// Strategy 2: Smart Delta for compatible files (if previous version exists)
 	if version > 1 && !cm.shouldCreateNewSnapshot(prevVersion) {
 		deltaResult, err := cm.tryUltraFastDelta(files, version, prevVersion, startTime)
@@ -208,19 +212,79 @@ func (cm *CommitManager) createUltraFastSnapshot(files []*staging.StagedFile, ve
 			os.Remove(filepath.Join(cm.DeltaDir, deltaResult.OutputFile))
 		}
 	}
-	
+
 	// Strategy 3: LZ4 Fallback (always fast)
 	return cm.createLZ4UltraFast(files, version, startTime)
+}
+
+// shouldUseLZ4UltraFast determines when to use ultra-fast LZ4 compression
+// Enhanced logic to enable delta compression for appropriate files and scenarios
+func (cm *CommitManager) shouldUseLZ4UltraFast(files []*staging.StagedFile, version int) bool {
+	// 첫 번째 커밋은 LZ4 사용 (비교할 이전 버전이 없음)
+	if version == 1 {
+		return true
+	}
+
+	// 파일 특성을 분석하여 델타 압축 적합성 판단
+	for _, file := range files {
+		// 대용량 파일은 델타 압축이 더 효율적 (50MB 이상)
+		if file.Size > 50*1024*1024 {
+			fmt.Printf("Large file detected (%s, %.1f MB) - using delta compression\n",
+				filepath.Base(file.Path), float64(file.Size)/(1024*1024))
+			return false
+		}
+
+		// 디자인 파일은 스마트 델타 압축 사용
+		ext := strings.ToLower(filepath.Ext(file.Path))
+		if ext == ".psd" || ext == ".ai" || ext == ".sketch" {
+			fmt.Printf("Design file detected (%s) - using smart delta compression\n",
+				filepath.Base(file.Path))
+			return false
+		}
+	}
+
+	// 작은 파일과 일반 파일은 LZ4 유지 (최대 속도)
+	return true
+}
+
+// tryUltraFastDelta - Smart delta compression optimized for speed
+// Chooses the fastest delta algorithm based on file types
+func (cm *CommitManager) tryUltraFastDelta(files []*staging.StagedFile, version, baseVersion int, startTime time.Time) (*CompressionResult, error) {
+	// Select fastest delta algorithm based on file characteristics
+	algorithm := cm.selectFastestDeltaAlgorithm(files)
+
+	switch algorithm {
+	case "psd_smart":
+		return cm.createPSDSmartDelta(files, version, baseVersion)
+	case "bsdiff_fast":
+		return cm.createBsdiffDeltaFast(files, version, baseVersion)
+	default:
+		return nil, fmt.Errorf("no suitable delta algorithm")
+	}
+}
+
+// selectFastestDeltaAlgorithm chooses optimal delta compression method
+// Prioritizes speed while maintaining good compression ratios
+func (cm *CommitManager) selectFastestDeltaAlgorithm(files []*staging.StagedFile) string {
+	// Check for PSD files (use intelligent PSD-specific delta)
+	for _, f := range files {
+		if strings.ToLower(filepath.Ext(f.Path)) == ".psd" {
+			return "psd_smart"
+		}
+	}
+
+	// For other design files, use optimized bsdiff
+	return "bsdiff_fast"
 }
 
 // createLZ4UltraFast - Core of 225x speed improvement over traditional ZIP compression
 // Uses streaming LZ4 compression with minimal overhead for instant commits
 func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version int, startTime time.Time) (*CompressionResult, error) {
 	compressionStartTime := time.Now()
-	
+
 	// Store in hot cache for immediate 0.2s access
 	hotCachePath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
-	
+
 	// Create LZ4 compressed file with optimal settings
 	outFile, err := os.Create(hotCachePath)
 	if err != nil {
@@ -243,35 +307,35 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 			fmt.Printf("Warning: failed to open %s: %v\n", file.Path, err)
 			continue
 		}
-		
+
 		// Critical fix: Close immediately after copy, not with defer in loop
 		written, err := io.Copy(lz4Writer, srcFile)
 		srcFile.Close() // Close immediately to prevent file handle leaks
-		
+
 		if err != nil {
 			fmt.Printf("Warning: failed to compress %s: %v\n", file.Path, err)
 			continue
 		}
-		
+
 		originalSize += written // Use actual written bytes for accurate metrics
 	}
-	
+
 	// Writers will be closed by deferred calls
 	// Calculate compression performance metrics
 	fileInfo, err := os.Stat(hotCachePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat compressed file: %w", err)
 	}
-	
+
 	compressedSize := fileInfo.Size()
 	compressionTime := float64(time.Since(compressionStartTime).Nanoseconds()) / 1000000.0
-	
+
 	// Verify compression worked properly
 	if compressedSize <= 10 && originalSize > 0 {
 		os.Remove(hotCachePath)
 		return nil, fmt.Errorf("compression failed: output too small (%d bytes) for a %d byte file", compressedSize, originalSize)
 	}
-    
+
 	// Safe compression ratio calculation
 	var ratio float64
 	if originalSize > 0 {
@@ -290,53 +354,15 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 	}, nil
 }
 
-// shouldUseLZ4UltraFast determines when to use ultra-fast LZ4 compression
-// Currently optimized to use LZ4 for all commits to achieve maximum speed
-func (cm *CommitManager) shouldUseLZ4UltraFast(files []*staging.StagedFile, version int) bool {
-	// Use LZ4 for all commits to achieve 225x speed improvement
-	// This is our core ultra-fast strategy for instant commits
-	return true
-}
-
-// tryUltraFastDelta - Smart delta compression optimized for speed
-// Chooses the fastest delta algorithm based on file types
-func (cm *CommitManager) tryUltraFastDelta(files []*staging.StagedFile, version, baseVersion int, startTime time.Time) (*CompressionResult, error) {
-	// Select fastest delta algorithm based on file characteristics
-	algorithm := cm.selectFastestDeltaAlgorithm(files)
-	
-	switch algorithm {
-	case "psd_smart":
-		return cm.createPSDSmartDelta(files, version, baseVersion)
-	case "bsdiff_fast":
-		return cm.createBsdiffDeltaFast(files, version, baseVersion)
-	default:
-		return nil, fmt.Errorf("no suitable delta algorithm")
-	}
-}
-
-// selectFastestDeltaAlgorithm chooses optimal delta compression method
-// Prioritizes speed while maintaining good compression ratios
-func (cm *CommitManager) selectFastestDeltaAlgorithm(files []*staging.StagedFile) string {
-	// Check for PSD files (use intelligent PSD-specific delta)
-	for _, f := range files {
-		if strings.ToLower(filepath.Ext(f.Path)) == ".psd" {
-			return "psd_smart"
-		}
-	}
-	
-	// For other design files, use optimized bsdiff
-	return "bsdiff_fast"
-}
-
 // createBsdiffDeltaFast - Speed-optimized bsdiff delta compression
 // Uses fast binary diff algorithm for rapid delta generation
 func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	compressionStart := time.Now()
-	
+
 	// Create temporary current version file in hot cache for speed
 	tempCurrent := filepath.Join(cm.HotCacheDir, fmt.Sprintf("temp_v%d.lz4", version))
 	defer os.Remove(tempCurrent)
-	
+
 	if err := cm.createTempLZ4File(files, tempCurrent); err != nil {
 		return nil, err
 	}
@@ -349,14 +375,14 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 
 	// Create delta file in hot cache for fast access
 	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
-	
+
 	// Open files for delta compression with proper error handling
 	baseFile, err := cm.openCachedFile(basePath)
 	if err != nil {
 		return nil, err
 	}
 	defer baseFile.Close()
-	
+
 	currentFile, err := os.Open(tempCurrent)
 	if err != nil {
 		return nil, err
@@ -373,7 +399,7 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 	if err := binarydist.Diff(baseFile, currentFile, deltaFile); err != nil {
 		return nil, fmt.Errorf("bsdiff delta failed: %w", err)
 	}
-	
+
 	compressionTime := float64(time.Since(compressionStart).Nanoseconds()) / 1000000.0
 	return cm.calculateCompressionResult("bsdiff", deltaPath, files, baseVersion, compressionTime)
 }
@@ -386,7 +412,7 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 func (cm *CommitManager) scheduleBackgroundOptimization(version int, result *CompressionResult) {
 	// Wait briefly to ensure user operations complete
 	time.Sleep(3 * time.Second)
-	
+
 	// Move from hot cache (LZ4) to warm cache (Zstd) for better compression
 	cm.optimizeToWarmCache(version, result)
 }
@@ -397,24 +423,24 @@ func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionRes
 	if result.Strategy != "lz4" {
 		return
 	}
-	
+
 	hotPath := filepath.Join(cm.HotCacheDir, result.OutputFile)
 	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
-	
+
 	// Open LZ4 source file
 	hotFile, err := os.Open(hotPath)
 	if err != nil {
 		return
 	}
 	defer hotFile.Close()
-	
+
 	// Create Zstd destination file
 	warmFile, err := os.Create(warmPath)
 	if err != nil {
 		return
 	}
 	defer warmFile.Close()
-	
+
 	// LZ4 decompression → Zstd compression pipeline for optimal ratios
 	lz4Reader := lz4.NewReader(hotFile)
 	zstdWriter, err := zstd.NewWriter(warmFile, zstd.WithEncoderLevel(zstd.SpeedDefault))
@@ -422,20 +448,20 @@ func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionRes
 		return
 	}
 	defer zstdWriter.Close()
-	
+
 	// Stream conversion for efficient memory usage
 	io.Copy(zstdWriter, lz4Reader)
 	zstdWriter.Close()
-	
+
 	// Background optimization completed successfully
 	// Keep hot cache for immediate access, warm cache for better compression ratio
 }
 
-// createPSDSmartDelta - Enhanced PSD delta compression
-// Specialized delta compression for Photoshop files with metadata awareness
+// createPSDSmartDelta - Enhanced PSD delta compression with layer-level change detection
+// Compares layers between versions and creates intelligent delta with change tracking
 func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	compressionStart := time.Now()
-	
+
 	// Find PSD file in staged files
 	var psdFile *staging.StagedFile
 	for _, f := range files {
@@ -444,67 +470,334 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 			break
 		}
 	}
-	
+
 	if psdFile == nil {
 		return nil, fmt.Errorf("no PSD file found")
 	}
-	
-	// Simplified PSD delta: compress current file with enhanced metadata
-	currentData, err := os.ReadFile(psdFile.AbsolutePath)
+
+	fmt.Printf("Analyzing PSD layers for smart delta (v%d vs v%d)...\n", version, baseVersion)
+
+	// Extract detailed layer information from current PSD
+	currentLayers, err := cm.extractPSDLayerInfo(psdFile.AbsolutePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read PSD file: %w", err)
+		fmt.Printf("Warning: Failed to extract current layer info: %v\n", err)
+		return cm.fallbackToBinaryDelta(files, version, baseVersion)
 	}
-	
-	// Create comprehensive delta metadata for PSD files
-	deltaInfo := map[string]interface{}{
-		"type":         "psd_smart_delta",
-		"from_version": baseVersion,
-		"to_version":   version,
-		"file_path":    psdFile.Path,
-		"original_size": psdFile.Size,
-		"timestamp":    time.Now(),
-	}
-	
-	// Combine metadata and file data for smart delta
-	metadataBytes, _ := json.Marshal(deltaInfo)
-	
-	// Create delta file in hot cache for fast access
-	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.psd_delta", version, baseVersion))
-	
-	// Write structured delta: metadata header + compressed data
-	outFile, err := os.Create(deltaPath)
+
+	// Extract layer information from previous version
+	previousLayers, err := cm.extractPreviousVersionLayers(baseVersion, psdFile.Path)
 	if err != nil {
-		return nil, err
+		fmt.Printf("Warning: Failed to extract previous layer info: %v\n", err)
+		return cm.fallbackToBinaryDelta(files, version, baseVersion)
 	}
-	defer outFile.Close()
-	
-	// Write metadata length and metadata for parsing
-	fmt.Fprintf(outFile, "METADATA:%d\n", len(metadataBytes))
-	outFile.Write(metadataBytes)
-	outFile.Write([]byte("\nDATA:\n"))
-	
-	// Compress and write file data using fast LZ4
-	lz4Writer := lz4.NewWriter(outFile)
-	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
-	lz4Writer.Write(currentData)
-	lz4Writer.Close()
-	
+
+	// Compare layers and detect changes
+	changeAnalysis := cm.compareLayerVersions(previousLayers, currentLayers)
+
+	// Display change summary to user
+	cm.displayLayerChanges(changeAnalysis, baseVersion, version)
+
+	// Create smart delta with layer change information
+	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", version, baseVersion))
+	deltaSize, err := cm.createSmartDeltaFile(deltaPath, psdFile, changeAnalysis, baseVersion, version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create smart delta file: %w", err)
+	}
+
 	compressionTime := float64(time.Since(compressionStart).Nanoseconds()) / 1000000.0
-	
-	fileInfo, _ := os.Stat(deltaPath)
-	deltaFileSize := fileInfo.Size()
-	
+
 	return &CompressionResult{
 		Strategy:         "psd_smart",
 		OutputFile:       filepath.Base(deltaPath),
 		OriginalSize:     psdFile.Size,
-		CompressedSize:   deltaFileSize,
-		CompressionRatio: float64(deltaFileSize) / float64(psdFile.Size),
+		CompressedSize:   deltaSize,
+		CompressionRatio: float64(deltaSize) / float64(psdFile.Size),
 		CompressionTime:  compressionTime,
 		CacheLevel:       "hot",
 		BaseVersion:      baseVersion,
 		CreatedAt:        time.Now(),
 	}, nil
+}
+
+// LayerChange represents a detected change between layer versions
+type LayerChange struct {
+	LayerID         int                    `json:"layer_id"`
+	LayerName       string                 `json:"layer_name"`
+	ChangeType      string                 `json:"change_type"` // "modified", "added", "deleted", "moved"
+	OldHash         string                 `json:"old_hash,omitempty"`
+	NewHash         string                 `json:"new_hash,omitempty"`
+	PropertyChanges map[string]interface{} `json:"property_changes,omitempty"`
+}
+
+// ChangeAnalysis contains comprehensive analysis of layer changes between versions
+type ChangeAnalysis struct {
+	TotalLayers    int           `json:"total_layers"`
+	ChangedLayers  []LayerChange `json:"changed_layers"`
+	AddedLayers    []LayerChange `json:"added_layers"`
+	DeletedLayers  []LayerChange `json:"deleted_layers"`
+	UnchangedCount int           `json:"unchanged_count"`
+	ChangesSummary string        `json:"changes_summary"`
+}
+
+// extractPSDLayerInfo extracts detailed layer information from PSD file
+func (cm *CommitManager) extractPSDLayerInfo(psdPath string) ([]DetailedLayer, error) {
+	detailedInfo, err := photoshop.GetDetailedPSDInfo(psdPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse PSD file: %w", err)
+	}
+	return detailedInfo.Layers, nil
+}
+
+// extractPreviousVersionLayers extracts layer info from previous version
+func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath string) ([]DetailedLayer, error) {
+	// Find the previous version file in cache
+	basePath := cm.findVersionInCache(baseVersion)
+	if basePath == "" {
+		return nil, fmt.Errorf("previous version v%d not found in cache", baseVersion)
+	}
+
+	// For now, return empty slice - would need to implement cache extraction
+	// In a full implementation, this would extract and decompress the cached file
+	// then parse its layer information
+
+	fmt.Printf("Previous version found at: %s\n", basePath)
+	return []DetailedLayer{}, nil // Placeholder - would extract from cache
+}
+
+// compareLayerVersions compares two sets of layers and identifies changes
+func (cm *CommitManager) compareLayerVersions(oldLayers, newLayers []DetailedLayer) *ChangeAnalysis {
+	analysis := &ChangeAnalysis{
+		TotalLayers:   len(newLayers),
+		ChangedLayers: []LayerChange{},
+		AddedLayers:   []LayerChange{},
+		DeletedLayers: []LayerChange{},
+	}
+
+	// Create hash maps for efficient lookup
+	oldLayerMap := make(map[string]DetailedLayer)
+	newLayerMap := make(map[string]DetailedLayer)
+
+	for _, layer := range oldLayers {
+		oldLayerMap[layer.Name] = layer
+	}
+	for _, layer := range newLayers {
+		newLayerMap[layer.Name] = layer
+	}
+
+	// Find added layers
+	for _, newLayer := range newLayers {
+		if _, exists := oldLayerMap[newLayer.Name]; !exists {
+			analysis.AddedLayers = append(analysis.AddedLayers, LayerChange{
+				LayerID:    newLayer.ID,
+				LayerName:  newLayer.Name,
+				ChangeType: "added",
+				NewHash:    newLayer.ContentHash,
+			})
+		}
+	}
+
+	// Find deleted layers
+	for _, oldLayer := range oldLayers {
+		if _, exists := newLayerMap[oldLayer.Name]; !exists {
+			analysis.DeletedLayers = append(analysis.DeletedLayers, LayerChange{
+				LayerID:    oldLayer.ID,
+				LayerName:  oldLayer.Name,
+				ChangeType: "deleted",
+				OldHash:    oldLayer.ContentHash,
+			})
+		}
+	}
+
+	// Find modified layers
+	for _, newLayer := range newLayers {
+		if oldLayer, exists := oldLayerMap[newLayer.Name]; exists {
+			if oldLayer.ContentHash != newLayer.ContentHash {
+				// Layer content changed - detect what specifically changed
+				propertyChanges := cm.detectPropertyChanges(oldLayer, newLayer)
+
+				analysis.ChangedLayers = append(analysis.ChangedLayers, LayerChange{
+					LayerID:         newLayer.ID,
+					LayerName:       newLayer.Name,
+					ChangeType:      "modified",
+					OldHash:         oldLayer.ContentHash,
+					NewHash:         newLayer.ContentHash,
+					PropertyChanges: propertyChanges,
+				})
+			}
+		}
+	}
+
+	// Calculate unchanged layers
+	analysis.UnchangedCount = len(newLayers) - len(analysis.ChangedLayers) - len(analysis.AddedLayers)
+
+	// Generate summary
+	analysis.ChangesSummary = cm.generateChangesSummary(analysis)
+
+	return analysis
+}
+
+// detectPropertyChanges identifies specific property changes between layer versions
+func (cm *CommitManager) detectPropertyChanges(oldLayer, newLayer DetailedLayer) map[string]interface{} {
+	changes := make(map[string]interface{})
+
+	// Check opacity changes
+	if oldLayer.Opacity != newLayer.Opacity {
+		changes["opacity"] = map[string]interface{}{
+			"old": oldLayer.Opacity,
+			"new": newLayer.Opacity,
+		}
+	}
+
+	// Check visibility changes
+	if oldLayer.Visible != newLayer.Visible {
+		changes["visibility"] = map[string]interface{}{
+			"old": oldLayer.Visible,
+			"new": newLayer.Visible,
+		}
+	}
+
+	// Check blend mode changes
+	if oldLayer.BlendMode != newLayer.BlendMode {
+		changes["blend_mode"] = map[string]interface{}{
+			"old": oldLayer.BlendMode,
+			"new": newLayer.BlendMode,
+		}
+	}
+
+	// Check position changes
+	if oldLayer.Position != newLayer.Position {
+		changes["position"] = map[string]interface{}{
+			"old": oldLayer.Position,
+			"new": newLayer.Position,
+		}
+	}
+
+	return changes
+}
+
+// generateChangesSummary creates human-readable summary of changes
+func (cm *CommitManager) generateChangesSummary(analysis *ChangeAnalysis) string {
+	totalChanges := len(analysis.ChangedLayers) + len(analysis.AddedLayers) + len(analysis.DeletedLayers)
+
+	if totalChanges == 0 {
+		return "No layer changes detected"
+	}
+
+	summary := fmt.Sprintf("%d layer(s) changed", totalChanges)
+
+	if len(analysis.AddedLayers) > 0 {
+		summary += fmt.Sprintf(", %d added", len(analysis.AddedLayers))
+	}
+	if len(analysis.DeletedLayers) > 0 {
+		summary += fmt.Sprintf(", %d deleted", len(analysis.DeletedLayers))
+	}
+	if len(analysis.ChangedLayers) > 0 {
+		summary += fmt.Sprintf(", %d modified", len(analysis.ChangedLayers))
+	}
+
+	return summary
+}
+
+// displayLayerChanges shows detailed change information to user
+func (cm *CommitManager) displayLayerChanges(analysis *ChangeAnalysis, baseVersion, newVersion int) {
+	fmt.Printf("\n=== PSD Layer Analysis (v%d → v%d) ===\n", baseVersion, newVersion)
+	fmt.Printf("Summary: %s\n", analysis.ChangesSummary)
+
+	// Show added layers
+	if len(analysis.AddedLayers) > 0 {
+		fmt.Printf("\n✅ Added layers:\n")
+		for _, change := range analysis.AddedLayers {
+			fmt.Printf("  + %s\n", change.LayerName)
+		}
+	}
+
+	// Show deleted layers
+	if len(analysis.DeletedLayers) > 0 {
+		fmt.Printf("\n❌ Deleted layers:\n")
+		for _, change := range analysis.DeletedLayers {
+			fmt.Printf("  - %s\n", change.LayerName)
+		}
+	}
+
+	// Show modified layers
+	if len(analysis.ChangedLayers) > 0 {
+		fmt.Printf("\n🔄 Modified layers:\n")
+		for _, change := range analysis.ChangedLayers {
+			fmt.Printf("  ~ %s", change.LayerName)
+			if len(change.PropertyChanges) > 0 {
+				var props []string
+				for prop := range change.PropertyChanges {
+					props = append(props, prop)
+				}
+				fmt.Printf(" (%s)", strings.Join(props, ", "))
+			}
+			fmt.Println()
+		}
+	}
+
+	if analysis.UnchangedCount > 0 {
+		fmt.Printf("\n🔹 %d layer(s) unchanged\n", analysis.UnchangedCount)
+	}
+
+	fmt.Println()
+}
+
+// createSmartDeltaFile creates the actual delta file with comprehensive metadata
+func (cm *CommitManager) createSmartDeltaFile(deltaPath string, psdFile *staging.StagedFile, analysis *ChangeAnalysis, baseVersion, version int) (int64, error) {
+	outFile, err := os.Create(deltaPath)
+	if err != nil {
+		return 0, err
+	}
+	defer outFile.Close()
+
+	// Create comprehensive delta metadata
+	deltaMetadata := map[string]interface{}{
+		"type":           "psd_smart_delta",
+		"from_version":   baseVersion,
+		"to_version":     version,
+		"file_path":      psdFile.Path,
+		"original_size":  psdFile.Size,
+		"timestamp":      time.Now(),
+		"layer_analysis": analysis,
+	}
+
+	// Marshal metadata to JSON
+	metadataBytes, err := json.MarshalIndent(deltaMetadata, "", "  ")
+	if err != nil {
+		return 0, err
+	}
+
+	// Write structured delta file
+	fmt.Fprintf(outFile, "PSD_SMART_DELTA_V1\n")
+	fmt.Fprintf(outFile, "METADATA_LENGTH:%d\n", len(metadataBytes))
+	outFile.Write(metadataBytes)
+	fmt.Fprintf(outFile, "\nBINARY_DATA:\n")
+
+	// Read and compress original file data
+	originalData, err := os.ReadFile(psdFile.AbsolutePath)
+	if err != nil {
+		return 0, err
+	}
+
+	// Use LZ4 compression for the binary data
+	lz4Writer := lz4.NewWriter(outFile)
+	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
+	lz4Writer.Write(originalData)
+	lz4Writer.Close()
+
+	// Return file size
+	fileInfo, err := os.Stat(deltaPath)
+	if err != nil {
+		return 0, err
+	}
+
+	return fileInfo.Size(), nil
+}
+
+// fallbackToBinaryDelta falls back to regular binary delta if smart analysis fails
+func (cm *CommitManager) fallbackToBinaryDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
+	fmt.Printf("Falling back to binary delta compression...\n")
+	return cm.createBsdiffDeltaFast(files, version, baseVersion)
 }
 
 // Performance display and logging functions
@@ -515,7 +808,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 func (cm *CommitManager) displayUltraFastCompressionStats(result *CompressionResult, totalTime time.Duration) {
 	compressionPercent := (1 - result.CompressionRatio) * 100
 	totalTimeMs := float64(totalTime.Nanoseconds()) / 1000000.0
-	
+
 	// Ultra-fast specific display with performance metrics
 	switch result.Strategy {
 	case "lz4":
@@ -531,14 +824,14 @@ func (cm *CommitManager) displayUltraFastCompressionStats(result *CompressionRes
 	default:
 		fmt.Printf("%s compression: %.1f%% in %.1fms\n", strings.ToUpper(result.Strategy), compressionPercent, result.CompressionTime)
 	}
-	
+
 	// Overall performance summary with target metrics
 	if totalTimeMs < 500 { // Less than 0.5 seconds total
 		fmt.Printf("Fast commit completed in %.0fms\n", totalTimeMs)
 	} else {
 		fmt.Printf("Fast commit completed in %.0fms\n", totalTimeMs)
 	}
-	
+
 	// Background optimization notice for user awareness
 	if cm.enableBackgroundOpt && result.Strategy == "lz4" {
 		fmt.Printf("Background optimization scheduled for better compression\n")
@@ -573,19 +866,19 @@ func (cm *CommitManager) findVersionInCache(version int) string {
 	if cm.fileExists(hotPath) {
 		return hotPath
 	}
-	
+
 	// Check warm cache (Zstd) - good balance of speed and compression
 	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
 	if cm.fileExists(warmPath) {
 		return warmPath
 	}
-	
+
 	// Check legacy objects (ZIP) - fallback compatibility
 	legacyPath := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.zip", version))
 	if cm.fileExists(legacyPath) {
 		return legacyPath
 	}
-	
+
 	return ""
 }
 
@@ -596,7 +889,7 @@ func (cm *CommitManager) openCachedFile(path string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Return appropriate decompression reader based on file extension
 	if strings.HasSuffix(path, ".lz4") {
 		return &lz4ReadCloser{lz4.NewReader(file), file}, nil
@@ -608,7 +901,7 @@ func (cm *CommitManager) openCachedFile(path string) (io.ReadCloser, error) {
 		}
 		return &zstdReadCloser{zstdReader, file}, nil
 	}
-	
+
 	// Return raw file for ZIP and other formats
 	return file, nil
 }
@@ -656,7 +949,7 @@ func (cm *CommitManager) createTempLZ4File(files []*staging.StagedFile, outputPa
 		// Add simple file header for identification
 		header := fmt.Sprintf("FILE:%s:%d\n", f.Path, f.Size)
 		lz4Writer.Write([]byte(header))
-		
+
 		// Add file content
 		srcFile, err := os.Open(f.AbsolutePath)
 		if err != nil {
@@ -665,7 +958,7 @@ func (cm *CommitManager) createTempLZ4File(files []*staging.StagedFile, outputPa
 		io.Copy(lz4Writer, srcFile)
 		srcFile.Close()
 	}
-	
+
 	return nil
 }
 
@@ -676,14 +969,14 @@ func (cm *CommitManager) calculateCompressionResult(strategy, outputFile string,
 	for _, f := range files {
 		originalSize += f.Size
 	}
-	
+
 	info, err := os.Stat(outputFile)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	compressedSize := info.Size()
-	
+
 	return &CompressionResult{
 		Strategy:         strategy,
 		OutputFile:       filepath.Base(outputFile),
@@ -908,6 +1201,6 @@ func (cm *CommitManager) createTempZip(files []*staging.StagedFile, outputPath s
 			return err
 		}
 	}
-	
+
 	return nil
 }
