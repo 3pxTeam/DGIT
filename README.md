@@ -25,7 +25,7 @@
 
 ### **1. 설치**
 
-[최신 릴리즈 페이지에서 `DGit`을 다운로드](https://www.google.com/search?q=%5Bhttps://github.com/3pxTeam/DGIT/releases)하십시오.
+[최신 릴리즈 페이지에서 `DGit`을 다운로드](https://github.com/3pxTeam/DGIT/releases)하십시오.
 
 * **DGit CLI:** `dgit` 실행 파일을 다운로드 받아 시스템 `$PATH`에 추가하여 터미널에서 사용합니다.
 * **DGit GUI:** `dgit-mac` 앱을 다운로드 받아 애플리케이션 폴더로 이동 후 실행합니다.
