@@ -1,7 +1,7 @@
 {
   "name": "dgit-mac",
   "version": "1.0.0",
-  "description": "DGit CLI를 위한 아름답고 네이티브한 macOS 스타일 데스크탑 인터페이스",
+  "description": "DGit CLI용 데스크탑 인터페이스",
   "main": "main.js",
   "author": {
     "name": "3pxTeam",
@@ -172,7 +172,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "Development",
-      "description": "DGit CLI를 위한 아름답고 네이티브한 macOS 스타일 데스크탑 인터페이스",
+      "description": "DGit CLI용 데스크탑 인터페이스",
       "desktop": {
         "Name": "DGit MAC",
         "Comment": "Design files version control system",
