@@ -1,0 +1,3417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DGit MAC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #1c1c1e;
+            --bg-tertiary: #2c2c2e;
+            --text-primary: #ffffff;
+            --text-secondary: #8e8e93;
+            --accent-blue: #007aff;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-orange: #ff9f0a;
+            --accent-purple: #bf5af2;
+            --border-color: #38383a;
+            --hover-bg: #2c2c2e;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f2f2f7;
+            --bg-tertiary: #e5e5ea;
+            --text-primary: #000000;
+            --text-secondary: #8e8e93;
+            --border-color: #c6c6c8;
+            --hover-bg: #e5e5ea;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 로딩 화면 */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .splash-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .splash-logo-icon {
+            width: 120px;
+            height: 120px;
+            background-image: url('../assets/icon.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            margin: 0 auto 30px;
+            border-radius: 28px;
+            animation: gentleFloat 4s ease-in-out infinite;
+            opacity: 1;
+        }
+        
+        .splash-logo-icon::before {
+            display: none;
+        }
+
+        .splash-logo-text {
+            font-size: 5rem;
+            font-weight: 300;
+            background: linear-gradient(135deg, #007aff, #5856d6, #af52de);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        
+        @keyframes gentleFloat {
+            0%, 100% { 
+                transform: translateY(0px) scale(1); 
+                opacity: 0.98;
+            }
+            50% { 
+                transform: translateY(-12px) scale(1.03); 
+                opacity: 1;
+            }
+        }
+
+        .splash-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .loading-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            animation: loadingPulse 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes loadingPulse {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* 메인 앱 컨테이너 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-container.visible {
+            opacity: 1;
+        }
+
+        /* 타이틀바 */
+        .title-bar {
+            height: 28px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            -webkit-app-region: drag;
+            position: relative;
+            padding: 0;
+            z-index: 1000;
+        }
+
+
+        .title-text {
+            flex: 1;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .theme-toggle {
+            -webkit-app-region: no-drag;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            cursor: pointer;
+            padding: 4px 16px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--hover-bg);
+        }
+
+        /* 홈 화면 스타일 */
+        .home-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 40px;
+            text-align: center;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .home-title {
+            margin-bottom: 40px;
+        }
+        
+        .home-title-text {
+            font-size: 4rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #007aff, #5856d6, #af52de);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -2px;
+        }
+
+        .home-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+        }
+
+        .home-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .home-button {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .home-button:hover {
+            background: var(--hover-bg);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .home-button:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .home-button-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 500;
+            color: white;
+            margin-right: 16px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        .home-button-icon.new-project {
+            background: linear-gradient(135deg, #007aff, #0056cc);
+        }
+
+        .home-button-icon.current-project {
+            background: linear-gradient(135deg, #34c759, #28a745);
+        }
+
+        .home-button-icon.recent-projects {
+            background: linear-gradient(135deg, #ff9500, #e6850e);
+        }
+
+        .home-button-text {
+            flex: 1;
+        }
+
+        .home-button-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .home-button-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* 프로젝트 작업 화면 */
+        .workspace {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+        }
+
+        .workspace.active {
+            display: flex;
+        }
+
+        .workspace-header {
+            height: 60px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 16px;
+        }
+
+        .project-info h2 {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .project-path {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .workspace-content {
+            flex: 1;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: rgba(28, 28, 30, 0.8);
+            border-right: 0.5px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .sidebar-nav {
+            list-style: none;
+            padding: 15px 10px;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            margin: 2px 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .nav-link:hover {
+            background: rgba(120, 120, 128, 0.16);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-link:hover .nav-icon {
+            transform: scale(1.05);
+        }
+        
+        .nav-link.active .nav-icon {
+            transform: scale(1.1);
+        }
+        
+        /* Context menu */
+        .context-menu {
+            position: fixed;
+            background: rgba(28, 28, 30, 0.9);
+            border: 0.5px solid var(--border-color);
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 160px;
+            z-index: 3000;
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+        
+        .context-menu-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            transition: background 0.2s ease;
+        }
+        
+        .context-menu-item:hover {
+            background: rgba(120, 120, 128, 0.16);
+        }
+        
+        .context-menu-separator {
+            height: 0.5px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+
+        .sidebar-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .sidebar-icon {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .sidebar-item:hover,
+        .sidebar-item.active {
+            background: var(--hover-bg);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-section {
+            display: none;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .content-section.hidden {
+            display: none;
+        }
+
+        .content-section::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .content-section::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .content-section::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .content-section::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .file-list {
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+
+        .file-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .file-list::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .file-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .file-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        .commit-list {
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+
+        .commit-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .commit-list::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .commit-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .commit-list::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        .terminal-panel {
+            height: 200px;
+            background: var(--bg-tertiary);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-header {
+            background: rgba(28, 28, 30, 0.8);
+            border-bottom: 0.5px solid var(--border-color);
+            padding: 8px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .header {
+            background: rgba(28, 28, 30, 0.8);
+            border-bottom: 0.5px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            -webkit-app-region: drag;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .terminal-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .terminal-control-btn {
+            background: rgba(120, 120, 128, 0.16);
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .terminal-control-btn:hover {
+            background: rgba(120, 120, 128, 0.24);
+            color: var(--text-primary);
+            transform: scale(1.1);
+        }
+
+        .terminal-panel.collapsed {
+            height: 40px !important;
+        }
+
+        .terminal-panel.collapsed .terminal-content {
+            display: none;
+        }
+
+        .terminal-tabs {
+            display: flex;
+            gap: 16px;
+        }
+
+        .terminal-tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+        }
+
+        .terminal-tab.active {
+            background: var(--hover-bg);
+        }
+
+        .terminal-content {
+            flex: 1;
+            padding: 12px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            line-height: 1.3;
+        }
+        
+        .terminal-content div {
+            margin-bottom: 4px;
+        }
+
+        /* 파일 리스트 */
+        .file-list {
+            display: grid;
+            gap: 12px;
+        }
+        
+        /* Pull to refresh */
+        .pull-to-refresh {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .pull-to-refresh.active {
+            top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border-color);
+            border-radius: 16px;
+            transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+        }
+
+        .file-item:hover {
+            background: var(--hover-bg);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .file-item:active {
+            transform: scale(0.98);
+        }
+
+        .file-thumbnail {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid var(--border-color);
+        }
+
+        .file-thumbnail.has-preview {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .file-thumbnail.has-preview:hover {
+            transform: scale(1.15);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-thumbnail:active {
+            transform: scale(0.95);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .file-details {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .file-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        /* 커밋 히스토리 */
+        .commit-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .commit-item {
+            display: flex;
+            gap: 16px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .commit-item:hover {
+            background: var(--hover-bg);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .commit-timeline {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-right: 8px;
+        }
+
+        .commit-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            border: 3px solid var(--bg-primary);
+            box-shadow: 0 0 0 2px var(--accent-blue);
+            margin-bottom: 8px;
+        }
+
+        .commit-line {
+            width: 2px;
+            flex: 1;
+            background: var(--border-color);
+            min-height: 20px;
+        }
+
+        .commit-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .commit-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .commit-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .commit-message {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+
+        .commit-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .commit-date {
+            color: var(--text-secondary);
+        }
+        
+        .commit-version {
+            background: var(--accent-blue);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .commit-hash {
+            font-family: 'SF Mono', Monaco, monospace;
+            background: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .commit-stats {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .commit-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .commit-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .commit-item:hover .commit-actions {
+            opacity: 1;
+        }
+
+        .commit-action-btn {
+            background: rgba(120, 120, 128, 0.16);
+            color: var(--text-primary);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .commit-action-btn:hover {
+            background: var(--accent-blue);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .traffic-lights {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+
+        .traffic-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(255, 255, 255, 0.1);
+        }
+        
+        .traffic-light::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            right: 2px;
+            bottom: 2px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .traffic-light:hover::before {
+            opacity: 1;
+        }
+
+        .traffic-light:hover {
+            transform: scale(1.15);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .traffic-light:active {
+            transform: scale(0.95);
+        }
+
+        .close { 
+            background: linear-gradient(135deg, #ff6b5a, #ff5f57);
+            border: 1px solid #e04b3d;
+        }
+        .minimize { 
+            background: linear-gradient(135deg, #ffcb2e, #ffbd2e);
+            border: 1px solid #e6a824;
+        }
+        .maximize { 
+            background: linear-gradient(135deg, #2dd648, #28ca42);
+            border: 1px solid #20a934;
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            animation: fadeIn 0.25s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: rgba(28, 28, 30, 0.95);
+            border: 0.5px solid var(--border-color);
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 520px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            animation: modalSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        /* Commit Dialog Styles */
+        .commit-dialog {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .commit-header {
+            text-align: center;
+        }
+        
+        .commit-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        .commit-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+        
+        .commit-files-preview {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .commit-file-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 0.5px solid var(--border-color);
+        }
+        
+        .commit-file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .commit-file-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .commit-file-status.modified {
+            background: #FF9F0A;
+        }
+        
+        .commit-file-status.added {
+            background: #30D158;
+        }
+        
+        .commit-file-status.deleted {
+            background: #FF453A;
+        }
+        
+        .commit-file-status.untracked {
+            background: #64D2FF;
+        }
+        
+        .commit-file-name {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        
+        .commit-file-more {
+            text-align: center;
+            padding: 12px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+        
+        .commit-message-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .commit-message-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .commit-message-input {
+            width: 100%;
+            height: 80px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            color: var(--text-primary) !important;
+            transition: border-color 0.2s ease;
+        }
+        
+        .commit-message-input:focus {
+            outline: none;
+            border-color: #007aff;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+
+/* 모달 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal {
+    background: rgba(28, 28, 30, 0.95);
+    border: 0.5px solid var(--border-color);
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    animation: modalSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Commit Dialog Styles */
+.commit-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.commit-header {
+    text-align: center;
+}
+
+.commit-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.commit-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.commit-files-preview {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.commit-file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 0.5px solid var(--border-color);
+}
+
+.commit-file-item:last-child {
+    border-bottom: none;
+}
+
+.commit-file-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.commit-file-status.modified {
+    background: #FF9F0A;
+}
+
+.commit-file-status.added {
+    background: #30D158;
+}
+
+.commit-file-status.deleted {
+    background: #FF453A;
+}
+
+.commit-file-status.untracked {
+    background: #64D2FF;
+}
+
+.commit-file-name {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.commit-file-more {
+    text-align: center;
+    padding: 12px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.commit-message-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.commit-message-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.commit-message-input {
+    width: 100%;
+    height: 80px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text-primary);
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease;
+}
+
+.commit-message-input:focus {
+    outline: none;
+    border-color: #007aff;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+@keyframes modalSlideIn {
+    from { 
+        transform: translateY(-20px) scale(0.95); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateY(0) scale(1); 
+        opacity: 1; 
+    }
+}
+
+.modal-header {
+    margin-bottom: 20px;
+}
+
+.modal-title {
+    font-size: 1.3rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.modal-subtitle {
+    color: var(--text-secondary);
+}
+
+.modal-body {
+    margin-bottom: 24px;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.modal-footer .btn {
+    min-width: 100px;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+/* 버튼 스타일 - 강제 적용 */
+button.btn, .btn {
+    padding: 20px 32px !important;
+    border: none !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    min-height: 56px !important;
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+button.btn:hover, .btn:hover {
+    background: #333333 !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+button.btn:active, .btn:active {
+    transform: translateY(0) scale(0.98) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+button.btn-primary, .btn-primary {
+    background: #007aff !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.5) !important;
+}
+
+button.btn-primary:hover, .btn-primary:hover {
+    background: #0056b3 !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 6px 16px rgba(0, 122, 255, 0.6) !important;
+}
+
+button.btn-secondary, .btn-secondary {
+    background: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 2px solid #444444 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+button.btn-secondary:hover, .btn-secondary:hover {
+    background: #333333 !important;
+    border-color: #666666 !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+.toast-container {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.toast {
+    background: rgba(28, 28, 30, 0.9);
+    border: 0.5px solid var(--border-color);
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 320px;
+    animation: toastSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    position: relative;
+}
+
+.toast::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    pointer-events: none;
+}
+
+.toast.success { border-left: 4px solid var(--accent-green); }
+.toast.error { border-left: 4px solid var(--accent-red); }
+.toast.warning { border-left: 4px solid var(--accent-orange); }
+
+@keyframes toastSlideIn {
+    from { 
+        transform: translateX(100%) scale(0.9); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateX(0) scale(1); 
+        opacity: 1; 
+    }
+}
+
+/* Haptic feedback simulation */
+.haptic-light {
+    animation: hapticLight 0.1s ease;
+}
+
+.haptic-medium {
+    animation: hapticMedium 0.15s ease;
+}
+
+@keyframes hapticLight {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.98); }
+    100% { transform: scale(1); }
+}
+
+@keyframes hapticMedium {
+    0% { transform: scale(1); }
+    25% { transform: scale(0.95); }
+    75% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* 브랜치 시각화 */
+.branch-graph {
+    height: 300px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.branch-node {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    border: 2px solid var(--bg-primary);
+}
+
+.branch-line {
+    position: absolute;
+    height: 2px;
+    background: var(--accent-blue);
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+    .workspace-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+    }
+    
+    .terminal-panel {
+        height: 150px;
+    }
+}
+
+/* 이미지 프리뷰 모달 */
+.image-preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    cursor: pointer;
+}
+
+.image-preview-modal.show {
+    display: flex;
+}
+
+.image-preview-content {
+    max-width: 90%;
+    max-height: 90%;
+    position: relative;
+}
+
+.image-preview-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.image-preview-info {
+    position: absolute;
+    bottom: -40px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.image-preview-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 숨김 클래스 */
+.hidden {
+    display: none;
+}
+</style>
+</head>
+<body data-theme="dark">
+    <!-- 로딩 화면 -->
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-logo">
+            <div class="splash-logo-icon"></div>
+            <div class="splash-logo-text">DGit</div>
+        </div>
+        <div class="splash-loading">
+            <span>로딩 중</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 앱 -->
+    <div class="app-container" id="appContainer">
+        <!-- 타이틀바 -->
+        <div class="title-bar">
+            <div class="title-text" id="titleText">DGit MAC</div>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <span id="themeIcon">🌙</span>
+            </button>
+        </div>
+
+        <!-- 홈 화면 -->
+        <div class="home-screen" id="homeScreen">
+            <div class="home-title">
+                <span class="home-title-text">DGit</span>
+            </div>
+            <div class="home-subtitle">디자인 파일 전용 버전 관리 시스템</div>
+            <div class="home-buttons">
+                <div class="home-button" onclick="selectNewProject()">
+                    <div class="home-button-icon new-project">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                    </div>
+                    <div class="home-button-text">
+                        <div class="home-button-title">새 프로젝트 선택</div>
+                        <div class="home-button-desc">새로운 디자인 프로젝트를 시작합니다</div>
+                    </div>
+                </div>
+                <div class="home-button" onclick="openCurrentProject()">
+                    <div class="home-button-icon current-project">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </div>
+                    <div class="home-button-text">
+                        <div class="home-button-title">진행 중인 프로젝트</div>
+                        <div class="home-button-desc">가장 최근 프로젝트를 바로 엽니다</div>
+                    </div>
+                </div>
+                <div class="home-button" onclick="showRecentProjects()">
+                    <div class="home-button-icon recent-projects">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.2,16.2L11,13V7H12.5V12.2L17,14.7L16.2,16.2Z"/>
+                        </svg>
+                    </div>
+                    <div class="home-button-text">
+                        <div class="home-button-title">지난 프로젝트</div>
+                        <div class="home-button-desc">최근 작업한 프로젝트 목록에서 선택</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 작업 공간 -->
+        <div class="workspace" id="workspace">
+            <!-- 헤더 -->
+            <div class="workspace-header">
+                <button class="btn btn-secondary" onclick="goHome()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; display: inline-flex !important; align-items: center !important; gap: 8px !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
+                    </svg>
+                    홈
+                </button>
+                <div class="project-info">
+                    <h2 id="projectName">프로젝트명</h2>
+                    <div class="project-path" id="projectPath">/path/to/project</div>
+                </div>
+            </div>
+
+            <!-- 콘텐츠 영역 -->
+            <div class="workspace-content">
+                <!-- 사이드바 -->
+                <div class="sidebar">
+                    <ul class="sidebar-nav">
+                        <li><a href="#" onclick="showContent('files')" class="nav-link active" id="filesNav">
+                            <span class="nav-icon">📄</span> 파일
+                        </a></li>
+                        <li><a href="#" onclick="showContent('versions')" class="nav-link" id="versionsNav">
+                            <span class="nav-icon">⏱</span> 히스토리
+                        </a></li>
+                        <li><a href="#" onclick="showContent('branches')" class="nav-link" id="branchesNav">
+                            <span class="nav-icon">⏸</span> 브랜치
+                        </a></li>
+                        <li><a href="#" onclick="showContent('settings')" class="nav-link" id="settingsNav">
+                            <span class="nav-icon">⚙</span> 설정
+                        </a></li>
+                    </ul>
+                </div>
+
+                <!-- 메인 콘텐츠 -->
+                <div class="main-content">
+                    <div class="content-area">
+                        <!-- 파일 목록 -->
+                        <div id="filesContent" class="content-section active">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3>프로젝트 파일</h3>
+                                <div class="action-buttons">
+                                    <button class="btn btn-secondary" onclick="changeProject()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                                        프로젝트 변경
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="scanProject()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                                        스캔
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="showInFinder()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                                        Finder에서 보기
+                                    </button>
+                                    <button class="btn btn-primary" onclick="commitChanges()" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 122, 255, 0.7)'; this.style.background='#3394ff'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 122, 255, 0.5)'; this.style.background='#007aff'">
+                                        변경사항 커밋
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="file-list" id="fileList">
+                                <!-- 파일 항목들이 여기에 동적으로 추가됩니다 -->
+                            </div>
+                        </div>
+
+                        <!-- 버전 히스토리 -->
+                        <div id="versionsContent" class="content-section hidden">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3>커밋 히스토리</h3>
+                                <div style="display: flex; gap: 12px;">
+                                    <button class="btn btn-secondary" onclick="addAllFiles()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                                        모든 파일 추가
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="restoreFiles()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                                        복원
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="commit-list" id="commitList">
+                                <!-- 커밋 항목들이 여기에 동적으로 추가됩니다 -->
+                            </div>
+                        </div>
+
+                        <!-- 브랜치 관리 -->
+                        <div id="branchesContent" class="content-section hidden">
+                            <h3 style="margin-bottom: 20px;">브랜치 관리</h3>
+                            <div class="branch-graph" id="branchGraph"></div>
+                            <button class="btn btn-primary" onclick="createBranch()" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 122, 255, 0.7)'; this.style.background='#3394ff'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 122, 255, 0.5)'; this.style.background='#007aff'">
+                새 브랜치 생성
+            </button>
+                        </div>
+
+
+                        <!-- 설정 -->
+                        <div id="settingsContent" class="content-section hidden">
+                            <h3 style="margin-bottom: 20px;">환경설정</h3>
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="margin-bottom: 10px;">정보</h4>
+                                <p style="color: var(--text-secondary); margin-bottom: 8px;">버전: 1.0.0</p>
+                                <p style="color: var(--text-secondary); margin-bottom: 8px;">제작: 3pxTeam</p>
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="margin-bottom: 10px;">테마</h4>
+                                <button class="btn btn-secondary" onclick="toggleTheme()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                    <span id="themeText">라이트 모드로 전환</span>
+                </button>
+                            </div>
+                            <div>
+                                <h4 style="margin-bottom: 10px;">알림 설정</h4>
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 12px;">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 4px;">시스템 알림</div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">커밋, 복원 등의 작업 완료 시 알림을 표시합니다</div>
+                                    </div>
+                                    <button class="btn btn-primary" id="notificationToggle" onclick="toggleNotifications()" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 122, 255, 0.7)'; this.style.background='#3394ff'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 122, 255, 0.5)'; this.style.background='#007aff'">
+                        <span id="notificationToggleText">켜짐</span>
+                    </button>
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; background: var(--bg-secondary); border-radius: 8px;">
+                                    <div>
+                                        <div style="font-weight: 500; margin-bottom: 4px;">사운드 알림</div>
+                                        <div style="font-size: 0.9rem; color: var(--text-secondary);">알림 시 시스템 사운드를 재생합니다</div>
+                                    </div>
+                                    <button class="btn btn-secondary" onclick="showToast('사운드 설정은 시스템 설정에서 변경할 수 있습니다', 'info')" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'; this.style.background='#2a2a2a'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'; this.style.background='#1a1a1a'">
+                        시스템 설정
+                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 터미널 패널 -->
+                    <div class="terminal-panel" id="terminalPanel">
+                        <div class="terminal-header">
+                            <div class="terminal-tabs">
+                                <div class="terminal-tab active" onclick="showTerminalTab('log')">커밋 로그</div>
+                                <div class="terminal-tab" onclick="showTerminalTab('status')">상태</div>
+                            </div>
+                            <div class="terminal-controls">
+                                <button class="terminal-control-btn" onclick="toggleTerminal()" id="terminalToggleBtn" title="터미널 숨기기">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        <div class="terminal-content" id="terminalContent">
+                            <div id="terminalLog">커밋 로그가 여기에 표시됩니다...</div>
+                            <div id="terminalStatus" class="hidden">상태 정보가 여기에 표시됩니다...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달들 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">모달 제목</div>
+                <div class="modal-subtitle" id="modalSubtitle">모달 부제목</div>
+            </div>
+            <div class="modal-body" id="modalBody">
+                모달 내용
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.4)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.3)'">취소</button>
+                <button class="btn btn-primary" onclick="confirmModal()" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important; transition: all 0.2s ease !important;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 122, 255, 0.7)'" onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 8px rgba(0, 122, 255, 0.5)'">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 컨테이너 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 이미지 프리뷰 모달 -->
+    <div class="image-preview-modal" id="imagePreviewModal" onclick="closeImagePreview()">
+        <button class="image-preview-close" onclick="closeImagePreview()">×</button>
+        <div class="image-preview-content" onclick="event.stopPropagation()">
+            <img class="image-preview-img" id="imagePreviewImg" src="" alt="">
+            <div class="image-preview-info" id="imagePreviewInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let currentProject = null;
+        let currentTheme = 'dark';
+        let activeContent = 'files';
+        let notificationsEnabled = true;
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            // 로딩 화면 표시 후 메인 앱으로 전환
+            setTimeout(() => {
+                document.getElementById('splashScreen').style.display = 'none';
+                document.getElementById('appContainer').classList.add('visible');
+                initializeApp();
+            }, 2000);
+        });
+
+        // 프로젝트 데이터 로드
+        async function loadProjectData() {
+            if (!currentProject) return;
+            
+            try {
+                // 프로젝트 파일 스캔
+                await loadProjectFiles();
+                
+                // 커밋 히스토리 로드
+                await loadCommitHistory();
+                
+                // DGit 상태 확인
+                await updateProjectStatus();
+                
+            } catch (error) {
+                console.error('프로젝트 데이터 로드 실패:', error);
+                showToast('프로젝트 데이터를 로드하는 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 프로젝트 파일 로드
+        async function loadProjectFiles() {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.scanDirectory(currentProject.path);
+                
+                if (result.success) {
+                    const files = result.files.map(file => ({
+                        name: file.name,
+                        type: file.type,
+                        size: formatFileSize(file.size),
+                        modified: formatDate(file.modified),
+                        status: 'unknown', // 상태는 별도로 확인
+                        path: file.path
+                    }));
+                    
+                    // DGit 상태로 파일 상태 업데이트
+                    await updateFileStatuses(files);
+                    renderFiles(files);
+                } else {
+                    showToast('파일을 스캔할 수 없습니다', 'error');
+                }
+            } catch (error) {
+                console.error('파일 로드 실패:', error);
+                showToast('파일 로드 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 커밋 히스토리 로드
+        async function loadCommitHistory() {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.dgit.log(currentProject.path, 10);
+                
+                if (result.success) {
+                    const commits = parseCommitLog(result.output);
+                    renderCommits(commits);
+                } else {
+                    // 저장소가 초기화되지 않은 경우
+                    renderCommits([]);
+                }
+            } catch (error) {
+                console.error('커밋 히스토리 로드 실패:', error);
+                renderCommits([]);
+            }
+        }
+
+        // 프로젝트 상태 업데이트
+        async function updateProjectStatus() {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.dgit.status(currentProject.path);
+                
+                if (result.success) {
+                    updateTerminalStatus(result.output);
+                } else {
+                    updateTerminalStatus('DGit 저장소가 초기화되지 않았습니다.');
+                }
+            } catch (error) {
+                console.error('상태 업데이트 실패:', error);
+                updateTerminalStatus('상태를 확인할 수 없습니다.');
+            }
+        }
+
+        // 파일 목록 렌더링
+        function renderFiles(files) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = files.map(file => {
+                const isImageFile = isPreviewableImage(file.type);
+                const thumbnailClass = isImageFile ? 'file-thumbnail has-preview' : 'file-thumbnail';
+                const thumbnailContent = isImageFile ? '' : getFileIcon(file.type);
+                const thumbnailStyle = isImageFile ? `background-image: url('file://${file.path}')` : '';
+                
+                return `
+                    <div class="file-item">
+                        <div class="${thumbnailClass}" 
+                             style="${thumbnailStyle}"
+                             onclick="${isImageFile ? `showImagePreview('${file.path}', '${file.name}')` : ''}"
+                             title="${isImageFile ? '클릭하여 미리보기' : ''}">
+                            ${thumbnailContent}
+                        </div>
+                        <div class="file-info" onclick="selectFile('${file.name}')">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-details">${file.size} • ${file.modified}</div>
+                        </div>
+                        <div class="file-status" style="background: ${getStatusColor(file.status)}"></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 이미지 파일 미리보기 가능 여부 확인
+        function isPreviewableImage(type) {
+            const previewableTypes = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'];
+            return previewableTypes.includes(type.toLowerCase());
+        }
+
+        // 이미지 미리보기 표시
+        function showImagePreview(imagePath, fileName) {
+            const modal = document.getElementById('imagePreviewModal');
+            const img = document.getElementById('imagePreviewImg');
+            const info = document.getElementById('imagePreviewInfo');
+            
+            img.src = `file://${imagePath}`;
+            info.textContent = fileName;
+            modal.classList.add('show');
+        }
+
+        // 이미지 미리보기 닫기
+        function closeImagePreview() {
+            const modal = document.getElementById('imagePreviewModal');
+            modal.classList.remove('show');
+        }
+
+        // 파일 선택
+        function selectFile(fileName) {
+            console.log('파일 선택:', fileName);
+            // 파일 선택 로직 구현
+        }
+
+        // 커밋 목록 렌더링
+        function renderCommits(commits) {
+            const commitList = document.getElementById('commitList');
+            
+            if (commits.length === 0) {
+                commitList.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <div style="font-size: 3rem; margin-bottom: 16px;">📝</div>
+                        <div style="font-size: 1.1rem; margin-bottom: 8px;">아직 커밋이 없습니다</div>
+                        <div style="font-size: 0.9rem;">첫 번째 커밋을 만들어보세요!</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            commitList.innerHTML = commits.map((commit, index) => {
+                const authorInitial = commit.author ? commit.author.charAt(0).toUpperCase() : 'U';
+                const isLast = index === commits.length - 1;
+                
+                return `
+                    <div class="commit-item" onclick="viewCommit('${commit.hash}')">
+                        <div class="commit-timeline">
+                            <div class="commit-dot"></div>
+                            ${!isLast ? '<div class="commit-line"></div>' : ''}
+                        </div>
+                        <div class="commit-avatar">${authorInitial}</div>
+                        <div class="commit-details">
+                            <div class="commit-message">${commit.message || '커밋 메시지 없음'}</div>
+                            <div class="commit-meta">
+                                <span class="commit-date">${commit.date || '날짜 없음'}</span>
+                                ${commit.version ? `<span class="commit-version">v${commit.version}</span>` : ''}
+                            </div>
+                            <div class="commit-actions">
+                                <button class="commit-action-btn" onclick="event.stopPropagation(); restoreToCommit('${commit.hash}')">
+                                    복원
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 파일 아이콘 가져오기
+        function getFileIcon(type) {
+            const icons = {
+                'psd': '🎨',
+                'ai': '🖌️',
+                'sketch': '✏️',
+                'figma': '🎯',
+                'xd': '💜',
+                'png': '🖼️',
+                'jpg': '📸',
+                'svg': '🎭'
+            };
+            return icons[type] || '📄';
+        }
+
+        // 파일 상태 색상 가져오기
+        function getStatusColor(status) {
+            const colors = {
+                'modified': 'var(--accent-orange)',
+                'staged': 'var(--accent-blue)', 
+                'committed': 'var(--accent-green)',
+                'added': 'var(--accent-green)',
+                'deleted': 'var(--accent-red)',
+                'untracked': 'var(--text-secondary)',
+                'unknown': 'var(--text-secondary)'
+            };
+            return colors[status] || 'var(--text-secondary)';
+        }
+
+        // 앱 초기화
+        async function initializeApp() {
+            try {
+                // 설정 로드
+                await loadAppConfig();
+                
+                // 최근 프로젝트 로드
+                await loadRecentProjects();
+                
+                console.log('앱 초기화 완료');
+            } catch (error) {
+                console.error('앱 초기화 실패:', error);
+            }
+        }
+
+        // 앱 설정 로드
+        async function loadAppConfig() {
+            try {
+                const result = await window.electron.config.load();
+                if (result.success) {
+                    const config = result.config;
+                    if (config.theme && config.theme !== currentTheme) {
+                        currentTheme = config.theme;
+                        document.body.setAttribute('data-theme', currentTheme);
+                        updateThemeUI();
+                    }
+                    if (config.notifications !== undefined) {
+                        notificationsEnabled = config.notifications;
+                        updateNotificationUI();
+                    }
+                }
+            } catch (error) {
+                console.error('설정 로드 실패:', error);
+            }
+        }
+
+        // 알림 UI 업데이트
+        function updateNotificationUI() {
+            const toggleButton = document.getElementById('notificationToggle');
+            const toggleText = document.getElementById('notificationToggleText');
+            const notificationIcon = document.getElementById('notificationIcon');
+            
+            if (toggleButton && toggleText && notificationIcon) {
+                if (notificationsEnabled) {
+                    toggleButton.className = 'btn btn-primary';
+                    toggleText.textContent = '켜짐';
+                    notificationIcon.textContent = '🔔';
+                } else {
+                    toggleButton.className = 'btn btn-secondary';
+                    toggleText.textContent = '꺼짐';
+                    notificationIcon.textContent = '🔕';
+                }
+            }
+        }
+
+        // 최근 프로젝트 로드
+        async function loadRecentProjects() {
+            try {
+                const result = await window.electron.recentProjects.load();
+                if (result.success) {
+                    window.recentProjectsList = result.projects || [];
+                }
+            } catch (error) {
+                console.error('최근 프로젝트 로드 실패:', error);
+                window.recentProjectsList = [];
+            }
+        }
+
+        // 파일 크기 포맷팅
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // 날짜 포맷팅
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return '방금 전';
+            if (diffMins < 60) return `${diffMins}분 전`;
+            if (diffHours < 24) return `${diffHours}시간 전`;
+            if (diffDays < 7) return `${diffDays}일 전`;
+            
+            return date.toLocaleDateString('ko-KR');
+        }
+
+        // 파일 상태 업데이트
+        async function updateFileStatuses(files) {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.dgit.status(currentProject.path);
+                if (result.success) {
+                    const statusMap = parseGitStatus(result.output);
+                    
+                    files.forEach(file => {
+                        if (statusMap[file.name]) {
+                            file.status = statusMap[file.name];
+                        } else {
+                            file.status = 'committed';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('파일 상태 업데이트 실패:', error);
+            }
+        }
+
+        // Git 상태 출력 파싱
+        function parseGitStatus(output) {
+            const statusMap = {};
+            const lines = output.split('\n');
+            
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                
+                // DGit 상태 출력 형식 파싱
+                const match = trimmed.match(/^([MAD?!])\s+(.+)$/);
+                if (match) {
+                    const [, statusCode, filename] = match;
+                    const status = getGitStatusText(statusCode);
+                    statusMap[filename] = status;
+                }
+            }
+            
+            return statusMap;
+        }
+
+        // Git 상태 코드를 텍스트로 변환
+        function getGitStatusText(statusCode) {
+            const statusMap = {
+                'M': 'modified',
+                'A': 'added', 
+                'D': 'deleted',
+                'R': 'renamed',
+                'C': 'copied',
+                'U': 'updated',
+                '?': 'untracked',
+                '!': 'ignored'
+            };
+            return statusMap[statusCode] || 'unknown';
+        }
+
+        // 커밋 로그 파싱
+        function parseCommitLog(output) {
+            const commits = [];
+            if (!output || !output.trim()) return commits;
+            
+            const lines = output.split('\n');
+            let currentCommit = null;
+            
+            for (const line of lines) {
+                if (line.startsWith('commit ')) {
+                    if (currentCommit) {
+                        commits.push(currentCommit);
+                    }
+                    // DGit 형식: "commit 4ea7d8384946 (v2)"
+                    const commitMatch = line.match(/commit\s+([a-f0-9]+)\s*\(([^)]+)\)/);
+                    if (commitMatch) {
+                        currentCommit = {
+                            hash: commitMatch[1].substring(0, 7),
+                            version: commitMatch[2],
+                            message: '',
+                            author: '',
+                            date: '',
+                            files: 0
+                        };
+                    }
+                } else if (line.startsWith('Author: ') && currentCommit) {
+                    currentCommit.author = line.substring(8).trim();
+                } else if (line.startsWith('Date: ') && currentCommit) {
+                    const dateStr = line.substring(6).trim();
+                    currentCommit.date = formatCommitDate(dateStr);
+                } else if (line.startsWith('    ') && currentCommit && !currentCommit.message) {
+                    // 커밋 메시지는 4개 공백으로 들여쓰기됨
+                    currentCommit.message = line.trim();
+                } else if (line.startsWith('    Files: ') && currentCommit) {
+                    const filesMatch = line.match(/Files:\s+(\d+)/);
+                    if (filesMatch) {
+                        currentCommit.files = parseInt(filesMatch[1]);
+                    }
+                }
+            }
+            
+            if (currentCommit) {
+                commits.push(currentCommit);
+            }
+            
+            return commits;
+        }
+
+        // 커밋 날짜 포맷팅
+        function formatCommitDate(dateStr) {
+            try {
+                const date = new Date(dateStr);
+                return formatDate(date);
+            } catch (error) {
+                return dateStr;
+            }
+        }
+
+        // 터미널 상태 업데이트
+        function updateTerminalStatus(statusOutput) {
+            const terminalStatus = document.getElementById('terminalStatus');
+            if (terminalStatus) {
+                terminalStatus.innerHTML = `<pre style="margin: 0; font-family: inherit;">${statusOutput}</pre>`;
+            }
+        }
+
+        // 테마 UI 업데이트
+        function updateThemeUI() {
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (currentTheme === 'light') {
+                if (themeIcon) themeIcon.textContent = '🌞';
+                if (themeText) themeText.textContent = '다크 모드로 전환';
+            } else {
+                if (themeIcon) themeIcon.textContent = '🌙';
+                if (themeText) themeText.textContent = '라이트 모드로 전환';
+            }
+        }
+
+        // 테마 토글
+        function toggleTheme() {
+            currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.body.setAttribute('data-theme', currentTheme);
+            
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (currentTheme === 'light') {
+                themeIcon.textContent = '🌞';
+                if (themeText) themeText.textContent = '다크 모드로 전환';
+            } else {
+                themeIcon.textContent = '🌙';
+                if (themeText) themeText.textContent = '라이트 모드로 전환';
+            }
+            
+            showToast('테마가 변경되었습니다', 'success');
+        }
+
+        // 트래픽 라이트 버튼 함수들
+        function closeApp() {
+            if (window.electron) {
+                window.electron.closeApp();
+            } else {
+                window.close();
+            }
+        }
+
+        function minimizeApp() {
+            if (window.electron) {
+                window.electron.minimizeApp();
+            }
+        }
+
+        function maximizeApp() {
+            if (window.electron) {
+                window.electron.maximizeApp();
+            }
+        }
+
+        // 홈 화면 버튼 함수들
+        async function selectNewProject() {
+            try {
+                // 먼저 DGit CLI 사용 가능 여부 확인
+                const isDGitAvailable = await checkDGitAvailability();
+                
+                if (!isDGitAvailable) {
+                    showModal('DGit CLI 없음', 'DGit CLI를 찾을 수 없습니다', `
+                        <div style="padding: 20px; text-align: center;">
+                            <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                                DGit CLI가 설치되어 있지 않거나 경로를 찾을 수 없습니다.<br>
+                                그래도 프로젝트를 열어서 파일을 확인할 수 있습니다.
+                            </p>
+                            <button class="btn btn-primary" onclick="selectProjectWithoutDGit()">
+                                DGit 없이 프로젝트 열기
+                            </button>
+                        </div>
+                    `);
+                    return;
+                }
+
+                const result = await window.electron.selectFolder();
+                
+                if (result.success) {
+                    const projectInfo = {
+                        name: result.name,
+                        path: result.path
+                    };
+                    
+                    // DGit 저장소 초기화 확인
+                    const isRepo = await checkIfRepository(result.path);
+                    
+                    if (!isRepo) {
+                        showModal('DGit 저장소 초기화', '이 폴더는 DGit 저장소가 아닙니다', `
+                            <div style="padding: 20px;">
+                                <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                                    선택한 폴더에 DGit 저장소를 초기화하시겠습니까?<br>
+                                    또는 DGit 없이 파일만 확인할 수도 있습니다.
+                                </p>
+                                <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+                                    <strong>폴더:</strong> ${result.path}
+                                </div>
+                                <div style="display: flex; gap: 12px; justify-content: center;">
+                                    <button class="btn btn-primary" onclick="initializeRepository(${JSON.stringify(projectInfo).replace(/"/g, '&quot;')})">
+                                        DGit 저장소 초기화
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="openProjectWithoutDGit(${JSON.stringify(projectInfo).replace(/"/g, '&quot;')})" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;">
+                                        DGit 없이 열기
+                                    </button>
+                                </div>
+                            </div>
+                        `);
+                    } else {
+                        await openProject(projectInfo);
+                    }
+                } else {
+                    showToast('폴더 선택이 취소되었습니다', 'warning');
+                }
+            } catch (error) {
+                console.error('프로젝트 선택 실패:', error);
+                showToast('프로젝트 선택 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // DGit 없이 프로젝트 선택
+        async function selectProjectWithoutDGit() {
+            closeModal();
+            
+            try {
+                const result = await window.electron.selectFolder();
+                
+                if (result.success) {
+                    const projectInfo = {
+                        name: result.name,
+                        path: result.path
+                    };
+                    
+                    await openProjectWithoutDGit(projectInfo);
+                } else {
+                    showToast('폴더 선택이 취소되었습니다', 'warning');
+                }
+            } catch (error) {
+                console.error('프로젝트 선택 실패:', error);
+                showToast('프로젝트 선택 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // DGit 기능 없이 프로젝트 열기
+        async function openProjectWithoutDGit(projectInfo) {
+            closeModal();
+            
+            currentProject = projectInfo;
+            document.getElementById('homeScreen').style.display = 'none';
+            document.getElementById('workspace').classList.add('active');
+            document.getElementById('titleText').textContent = `DGit MAC - ${projectInfo.name} (DGit 없음)`;
+            document.getElementById('projectName').textContent = projectInfo.name;
+            document.getElementById('projectPath').textContent = projectInfo.path;
+            
+            // 최근 프로젝트에 저장
+            try {
+                await window.electron.recentProjects.save(projectInfo);
+                await loadRecentProjects();
+            } catch (error) {
+                console.error('최근 프로젝트 저장 실패:', error);
+            }
+            
+            // 파일만 로드 (DGit 기능 제외)
+            await loadProjectFilesOnly();
+            
+            showToast(`프로젝트 '${projectInfo.name}'을 열었습니다 (DGit 기능 없음)`, 'warning');
+        }
+
+        // 파일만 로드 (DGit 기능 제외)
+        async function loadProjectFilesOnly() {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.scanDirectory(currentProject.path);
+                
+                if (result.success) {
+                    const files = result.files.map(file => ({
+                        name: file.name,
+                        type: file.type,
+                        size: formatFileSize(file.size),
+                        modified: formatDate(file.modified),
+                        status: 'unknown',
+                        path: file.path
+                    }));
+                    
+                    renderFiles(files);
+                    
+                    // 빈 커밋 히스토리와 상태 표시
+                    renderCommits([]);
+                    updateTerminalStatus('DGit CLI를 사용할 수 없습니다. 파일 보기만 가능합니다.');
+                } else {
+                    showToast('파일을 스캔할 수 없습니다', 'error');
+                }
+            } catch (error) {
+                console.error('파일 로드 실패:', error);
+                showToast('파일 로드 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        async function openCurrentProject() {
+            // 최근 프로젝트 목록에서 가장 최근 프로젝트 가져오기
+            const recentProjects = window.recentProjectsList || [];
+            
+            if (recentProjects.length > 0) {
+                const mostRecentProject = recentProjects[0];
+                await openProject(mostRecentProject);
+            } else {
+                showToast('진행 중인 프로젝트가 없습니다', 'warning');
+            }
+        }
+
+        async function showRecentProjects() {
+            const recentProjects = window.recentProjectsList || [];
+            
+            if (recentProjects.length === 0) {
+                showModal('지난 프로젝트', '최근 작업한 프로젝트가 없습니다', `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <p>아직 작업한 프로젝트가 없습니다.</p>
+                        <p>새 프로젝트를 선택하여 시작해보세요.</p>
+                    </div>
+                `);
+                return;
+            }
+
+            const projectList = recentProjects.map(project => `
+                <div class="file-item" onclick="openRecentProject('${project.path}', '${project.name}')">
+                    <div class="file-thumbnail">📁</div>
+                    <div class="file-info">
+                        <div class="file-name">${project.name}</div>
+                        <div class="file-details">${project.path} • ${formatDate(project.lastOpened)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            showModal('지난 프로젝트', '최근 작업한 프로젝트를 선택하세요', `
+                <div class="file-list">
+                    ${projectList}
+                </div>
+            `);
+        }
+
+        // 저장소 확인
+        async function checkIfRepository(projectPath) {
+            try {
+                const result = await window.electron.dgit.status(projectPath);
+                return result.success;
+            } catch (error) {
+                console.log('Repository check error:', error);
+                return false;
+            }
+        }
+
+        // DGit CLI 사용 가능 여부 확인
+        async function checkDGitAvailability() {
+            try {
+                const result = await window.electron.dgit.command('help');
+                return result.success;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // 저장소 초기화
+        async function initializeRepository(projectInfo) {
+            closeModal();
+            
+            try {
+                showToast('DGit 저장소를 초기화하는 중...', 'info');
+                
+                const result = await window.electron.dgit.command('init', [], projectInfo.path);
+                
+                if (result.success) {
+                    showToast('DGit 저장소가 초기화되었습니다', 'success');
+                    await openProjectDirectly(projectInfo);
+                } else {
+                    showToast('저장소 초기화에 실패했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('저장소 초기화 실패:', error);
+                showToast('저장소 초기화 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 프로젝트 열기
+        async function openProject(projectInfo) {
+            // DGit 저장소 존재 여부 확인
+            try {
+                const statusResult = await window.electron.dgit.command('status', [], projectInfo.path);
+                
+                // DGit 저장소가 없는 경우 초기화 프롬프트 표시
+                if (!statusResult.success && statusResult.error && statusResult.error.includes('not a DGit repository')) {
+                    showDGitInitPrompt(projectInfo);
+                    return;
+                }
+            } catch (error) {
+                // DGit 명령 실행 실패 시 초기화 프롬프트 표시
+                showDGitInitPrompt(projectInfo);
+                return;
+            }
+            
+            // DGit 저장소가 있는 경우 정상적으로 프로젝트 열기
+            await openProjectDirectly(projectInfo);
+        }
+
+        // DGit 초기화 프롬프트 표시
+        function showDGitInitPrompt(projectInfo) {
+            showModal('DGit 저장소 초기화', '이 프로젝트에는 DGit 저장소가 없습니다', `
+                <div style="padding: 20px; text-align: center;">
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size: 3rem; margin-bottom: 16px;">📦</div>
+                        <h3 style="margin-bottom: 12px; color: var(--text-primary);">DGit 저장소가 필요합니다</h3>
+                        <p style="color: var(--text-secondary); line-height: 1.5;">
+                            이 프로젝트에서 버전 관리를 사용하려면<br>
+                            DGit 저장소를 초기화해야 합니다.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button class="btn btn-secondary" onclick="closeModal()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;">취소</button>
+                        <button class="btn btn-primary" onclick="initializeRepository(${JSON.stringify(projectInfo).replace(/"/g, '&quot;')})" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important;">
+                            저장소 초기화
+                        </button>
+                        <button class="btn btn-secondary" onclick="openProjectWithoutDGit(${JSON.stringify(projectInfo).replace(/"/g, '&quot;')})" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;">
+                            DGit 없이 열기
+                        </button>
+                    </div>
+                </div>
+            `);
+        }
+
+        // 프로젝트 직접 열기 (DGit 저장소 확인 완료 후)
+        async function openProjectDirectly(projectInfo) {
+            currentProject = projectInfo;
+            document.getElementById('homeScreen').style.display = 'none';
+            document.getElementById('workspace').classList.add('active');
+            document.getElementById('titleText').textContent = `DGit MAC - ${projectInfo.name}`;
+            document.getElementById('projectName').textContent = projectInfo.name;
+            document.getElementById('projectPath').textContent = projectInfo.path;
+            
+            // 최근 프로젝트에 저장
+            try {
+                await window.electron.recentProjects.save(projectInfo);
+                await loadRecentProjects(); // 목록 새로고침
+            } catch (error) {
+                console.error('최근 프로젝트 저장 실패:', error);
+            }
+            
+            // 프로젝트 데이터 로드
+            await loadProjectData();
+            
+            showToast(`프로젝트 '${projectInfo.name}'을 열었습니다`, 'success');
+        }
+
+        function openRecentProject(path, name) {
+            closeModal();
+            openProject({ name, path });
+        }
+
+        // 홈으로 돌아가기
+        function goHome() {
+            document.getElementById('workspace').classList.remove('active');
+            document.getElementById('homeScreen').style.display = 'flex';
+            document.getElementById('titleText').textContent = 'DGit MAC';
+            currentProject = null;
+        }
+
+        // 사이드바 콘텐츠 표시
+        function showContent(contentType) {
+            // 모든 콘텐츠 섹션 숨기기
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.classList.add('hidden');
+            });
+            
+            // 사이드바 활성화 상태 변경
+            document.querySelectorAll('.nav-link').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // 선택된 콘텐츠 표시
+            const contentElement = document.getElementById(`${contentType}Content`);
+            if (contentElement) {
+                contentElement.classList.remove('hidden');
+                contentElement.classList.add('active');
+            }
+            
+            // 클릭된 네비게이션 링크 활성화
+            if (event && event.target) {
+                event.target.closest('.nav-link').classList.add('active');
+            }
+            
+            activeContent = contentType;
+        }
+
+        // 터미널 탭 전환
+        function showTerminalTab(tabType) {
+            document.querySelectorAll('.terminal-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            
+            if (tabType === 'log') {
+                document.getElementById('terminalLog').classList.remove('hidden');
+                document.getElementById('terminalStatus').classList.add('hidden');
+            } else {
+                document.getElementById('terminalLog').classList.add('hidden');
+                document.getElementById('terminalStatus').classList.remove('hidden');
+            }
+        }
+
+        // 터미널 토글
+        function toggleTerminal() {
+            const terminalPanel = document.getElementById('terminalPanel');
+            const toggleBtn = document.getElementById('terminalToggleBtn');
+            
+            if (terminalPanel.classList.contains('collapsed')) {
+                terminalPanel.classList.remove('collapsed');
+                toggleBtn.textContent = '✕';
+            } else {
+                terminalPanel.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+            }
+        }
+
+        // 파일 미리보기
+        function previewFile(filename) {
+            showModal('파일 미리보기', filename, `
+                <div style="text-align: center; padding: 40px;">
+                    <div style="width: 200px; height: 150px; background: var(--bg-tertiary); border-radius: 8px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                        ${getFileIcon(filename.split('.').pop())}
+                    </div>
+                    <p style="color: var(--text-secondary);">
+                        ${filename}의 미리보기입니다.<br>
+                        실제 구현에서는 이미지 썸네일이 표시됩니다.
+                    </p>
+                </div>
+            `);
+        }
+
+        // 커밋 상세보기
+        async function viewCommit(hash) {
+            if (!currentProject) return;
+            
+            try {
+                // 실제 커밋 정보 가져오기
+                const result = await window.electron.dgit.command('show', ['--name-only', hash], currentProject.path);
+                
+                let commitDetails = `
+                    <div style="padding: 20px;">
+                        <h4 style="margin-bottom: 16px;">커밋 해시: ${hash}</h4>
+                `;
+                
+                if (result.success) {
+                    const lines = result.output.split('\n');
+                    const commitMessage = lines.find(line => line.trim() && !line.startsWith('commit') && !line.startsWith('Author') && !line.startsWith('Date')) || '커밋 메시지 없음';
+                    
+                    commitDetails += `
+                        <h4 style="margin: 20px 0 16px 0;">커밋 메시지:</h4>
+                        <p style="color: var(--text-secondary); background: var(--bg-tertiary); padding: 12px; border-radius: 6px;">
+                            ${commitMessage}
+                        </p>
+                    `;
+                } else {
+                    commitDetails += `
+                        <p style="color: var(--text-secondary);">커밋 정보를 불러올 수 없습니다.</p>
+                    `;
+                }
+                
+                commitDetails += `</div>`;
+                
+                showModal('커밋 상세정보', `커밋 ${hash}`, commitDetails);
+            } catch (error) {
+                console.error('커밋 정보 로드 실패:', error);
+                showModal('커밋 상세정보', `커밋 ${hash}`, `
+                    <div style="padding: 20px;">
+                        <p style="color: var(--text-secondary);">커밋 정보를 불러오는 중 오류가 발생했습니다.</p>
+                    </div>
+                `);
+            }
+        }
+
+        // 프로젝트 변경
+        async function changeProject() {
+            await selectNewProject();
+        }
+
+        // 프로젝트 스캔
+        async function scanProject() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                showToast('프로젝트를 스캔하고 있습니다...', 'info');
+                await loadProjectData();
+                showToast('프로젝트 스캔이 완료되었습니다', 'success');
+            } catch (error) {
+                console.error('프로젝트 스캔 실패:', error);
+                showToast('프로젝트 스캔 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 모든 파일 추가
+        async function addAllFiles() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                const result = await window.electron.dgit.command('add', ['.'], currentProject.path);
+                
+                if (result.success) {
+                    showToast('모든 파일이 스테이징 영역에 추가되었습니다', 'success');
+                    await loadProjectData(); // 파일 상태 새로고침
+                } else {
+                    showToast('파일 추가 중 오류가 발생했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('파일 추가 실패:', error);
+                showToast('파일 추가 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 파일 복원
+        async function restoreFiles() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            showModal('파일 복원', '변경사항을 복원하시겠습니까?', `
+                <div style="padding: 20px;">
+                    <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                        이 작업은 모든 변경사항을 마지막 커밋 상태로 되돌립니다.<br>
+                        <strong style="color: var(--accent-red);">주의: 이 작업은 되돌릴 수 없습니다.</strong>
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button class="btn btn-secondary" onclick="closeModal()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;">취소</button>
+                        <button class="btn btn-danger" onclick="performRestore()" style="padding: 12px 20px !important; background: #ff3b30 !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(255, 59, 48, 0.5) !important;">복원 실행</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        // 복원 실행
+        async function performRestore() {
+            closeModal();
+            
+            try {
+                showToast('파일을 복원하는 중...', 'info');
+                
+                // 터미널에 로그 추가
+                const terminalLog = document.getElementById('terminalLog');
+                terminalLog.innerHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--accent-blue);">⏳</span> 
+                        <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                        파일 복원 시작...
+                    </div>
+                `;
+                terminalLog.scrollTop = terminalLog.scrollHeight;
+
+                // DGit reset --hard HEAD 명령 사용 (더 확실한 복원)
+                const result = await window.electron.dgit.command('reset', ['--hard', 'HEAD'], currentProject.path);
+                
+                if (result.success) {
+                    // 성공 로그 추가
+                    terminalLog.innerHTML += `
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: var(--accent-green);">✓</span> 
+                            <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                            파일 복원 완료
+                        </div>
+                    `;
+                    terminalLog.scrollTop = terminalLog.scrollHeight;
+                    
+                    showToast('파일이 성공적으로 복원되었습니다 ✅', 'success');
+                    await loadProjectData(); // 파일 상태 새로고침
+                } else {
+                    // 실패 로그 추가
+                    terminalLog.innerHTML += `
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: var(--accent-red);">✗</span> 
+                            <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                            파일 복원 실패: ${result.error || '알 수 없는 오류'}
+                        </div>
+                    `;
+                    terminalLog.scrollTop = terminalLog.scrollHeight;
+                    
+                    showToast(`파일 복원 실패: ${result.error || '알 수 없는 오류'}`, 'error');
+                }
+            } catch (error) {
+                console.error('파일 복원 실패:', error);
+                
+                // 에러 로그 추가
+                const terminalLog = document.getElementById('terminalLog');
+                terminalLog.innerHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--accent-red);">✗</span> 
+                        <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                        파일 복원 오류: ${error.message}
+                    </div>
+                `;
+                terminalLog.scrollTop = terminalLog.scrollHeight;
+                
+                showToast('파일 복원 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // Finder에서 보기
+        async function showInFinder() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                const result = await window.electron.showInFinder(currentProject.path);
+                
+                if (result.success) {
+                    showToast('Finder에서 프로젝트 폴더를 열었습니다', 'success');
+                } else {
+                    showToast('Finder에서 열기 중 오류가 발생했습니다', 'error');
+                }
+            } catch (error) {
+                console.error('Finder에서 보기 실패:', error);
+                showToast('Finder에서 열기 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 변경사항 커밋
+        async function commitChanges() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                // 현재 상태 확인
+                const statusResult = await window.electron.dgit.status(currentProject.path);
+                let statusInfo = '상태를 확인할 수 없습니다';
+                let changedFiles = [];
+                
+                if (statusResult.success) {
+                    // DGit 상태 출력 파싱 개선
+                    const statusOutput = statusResult.output.trim();
+                    console.log('DGit status output:', statusOutput);
+                    
+                    // 빈 출력이거나 "nothing to commit" 메시지가 있으면 변경사항 없음
+                    if (!statusOutput || statusOutput.includes('nothing to commit') || statusOutput.includes('working tree clean')) {
+                        // 스테이징된 파일이 있는지 확인
+                        const addResult = await window.electron.dgit.command('status', ['--porcelain'], currentProject.path);
+                        if (addResult.success && addResult.output.trim()) {
+                            // 스테이징된 파일이 있음
+                            const stagedLines = addResult.output.split('\n').filter(line => line.trim());
+                            changedFiles = stagedLines.map(line => {
+                                const status = line.substring(0, 2);
+                                const file = line.substring(3);
+                                return { status, file };
+                            });
+                            statusInfo = `${changedFiles.length}개 파일이 스테이징됨`;
+                        } else {
+                            showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
+                            return;
+                        }
+                    } else {
+                        // 변경된 파일 파싱
+                        const statusLines = statusOutput.split('\n').filter(line => line.trim());
+                        
+                        if (statusLines.length === 0) {
+                            showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
+                            return;
+                        }
+                        
+                        changedFiles = statusLines.map(line => {
+                            // DGit 상태 형식에 맞게 파싱
+                            const trimmedLine = line.trim();
+                            if (trimmedLine.length < 3) return null;
+                            const status = trimmedLine.substring(0, 2);
+                            const file = trimmedLine.substring(3);
+                            return {
+                                status: status || 'M',
+                                file: file || trimmedLine
+                            };
+                        }).filter(item => item && item.file);
+                        
+                        const totalCount = changedFiles.length;
+                        if (totalCount > 0) {
+                            statusInfo = `${totalCount}개 파일이 변경됨`;
+                        } else {
+                            showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
+                            return;
+                        }
+                    }
+                } else {
+                    showToast('프로젝트 상태를 확인할 수 없습니다', 'error');
+                    return;
+                }
+
+                showModal('변경사항 커밋', '', `
+                    <div class="commit-dialog">
+                        <div class="commit-header">
+                            <div class="commit-title">변경사항을 커밋하시겠습니까?</div>
+                            <div class="commit-subtitle">${statusInfo}</div>
+                        </div>
+                        
+                        <div class="commit-files-preview">
+                            ${changedFiles.slice(0, 5).map(file => `
+                                <div class="commit-file-item">
+                                    <div class="commit-file-status ${file.status}"></div>
+                                    <div class="commit-file-name">${file.name}</div>
+                                </div>
+                            `).join('')}
+                            ${changedFiles.length > 5 ? `
+                                <div class="commit-file-more">그 외 ${changedFiles.length - 5}개 파일...</div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="commit-message-section">
+                            <label class="commit-message-label">커밋 메시지</label>
+                            <textarea 
+                                id="commitMessage" 
+                                placeholder="변경사항을 설명해주세요..."
+                                class="commit-message-input"
+                            ></textarea>
+                        </div>
+                    </div>
+                `, () => {
+                    const message = document.getElementById('commitMessage').value;
+                    if (message.trim()) {
+                        performCommit(message);
+                    } else {
+                        showToast('커밋 메시지를 입력해주세요', 'warning');
+                    }
+                });
+            } catch (error) {
+                console.error('커밋 준비 실패:', error);
+                showToast('커밋 준비 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        async function performCommit(message) {
+            closeModal();
+            
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'error');
+                return;
+            }
+
+            try {
+                showToast('변경사항을 커밋하는 중...', 'info');
+                
+                // 터미널에 로그 추가
+                const terminalLog = document.getElementById('terminalLog');
+                terminalLog.innerHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--accent-blue);">⏳</span> 
+                        <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                        커밋 시작: ${message}
+                    </div>
+                `;
+                terminalLog.scrollTop = terminalLog.scrollHeight;
+
+                // 1단계: 모든 파일 추가 (add .)
+                const addResult = await window.electron.dgit.command('add', ['.'], currentProject.path);
+                
+                if (!addResult.success) {
+                    throw new Error(`파일 추가 실패: ${addResult.error}`);
+                }
+
+                terminalLog.innerHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--accent-blue);">📁</span> 
+                        <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                        파일 추가 완료
+                    </div>
+                `;
+                terminalLog.scrollTop = terminalLog.scrollHeight;
+
+                // 2단계: 커밋 실행
+                const commitResult = await window.electron.dgit.command('commit', ['-m', message], currentProject.path);
+                
+                if (commitResult.success) {
+                    // 성공 로그 추가
+                    terminalLog.innerHTML += `
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: var(--accent-green);">✓</span> 
+                            <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                            커밋 완료: ${message}
+                        </div>
+                    `;
+                    terminalLog.scrollTop = terminalLog.scrollHeight;
+                    
+                    showToast('커밋이 성공적으로 완료되었습니다 ✅', 'success');
+                    
+                    // 프로젝트 데이터 새로고침
+                    await loadProjectData();
+                } else {
+                    // 실패 로그 추가
+                    terminalLog.innerHTML += `
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: var(--accent-red);">✗</span> 
+                            <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                            커밋 실패: ${commitResult.error || '알 수 없는 오류'}
+                        </div>
+                    `;
+                    terminalLog.scrollTop = terminalLog.scrollHeight;
+                    
+                    showToast(`커밋 실패: ${commitResult.error || '알 수 없는 오류'}`, 'error');
+                }
+            } catch (error) {
+                console.error('커밋 실행 실패:', error);
+                
+                // 에러 로그 추가
+                const terminalLog = document.getElementById('terminalLog');
+                terminalLog.innerHTML += `
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--accent-red);">✗</span> 
+                        <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                        커밋 오류: ${error.message}
+                    </div>
+                `;
+                terminalLog.scrollTop = terminalLog.scrollHeight;
+                
+                showToast('커밋 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 브랜치 생성
+        async function createBranch() {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                // 현재 브랜치 확인
+                const currentBranchResult = await window.electron.dgit.command('branch', ['--show-current'], currentProject.path);
+                let currentBranch = 'main';
+                
+                if (currentBranchResult.success && currentBranchResult.output.trim()) {
+                    currentBranch = currentBranchResult.output.trim();
+                }
+
+                showModal('새 브랜치 생성', '브랜치 이름을 입력하세요', `
+                    <div>
+                        <input 
+                            type="text" 
+                            id="branchName" 
+                            placeholder="feature/new-design"
+                            style="
+                                width: 100%;
+                                padding: 12px;
+                                background: var(--bg-secondary);
+                                border: 1px solid var(--border-color);
+                                border-radius: 6px;
+                                color: var(--text-primary);
+                                font-family: inherit;
+                            "
+                        />
+                        <div style="margin-top: 16px; color: var(--text-secondary); font-size: 0.9rem;">
+                            현재 브랜치: ${currentBranch}에서 분기됩니다
+                        </div>
+                    </div>
+                `, () => {
+                    const branchName = document.getElementById('branchName').value;
+                    if (branchName.trim()) {
+                        createNewBranch(branchName);
+                    } else {
+                        showToast('브랜치 이름을 입력해주세요', 'warning');
+                    }
+                });
+            } catch (error) {
+                console.error('브랜치 생성 준비 실패:', error);
+                showToast('브랜치 생성 준비 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        async function createNewBranch(name) {
+            closeModal();
+            
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'error');
+                return;
+            }
+
+            try {
+                showToast('브랜치를 생성하는 중...', 'success');
+                
+                const result = await window.electron.dgit.createBranch(currentProject.path, name);
+                
+                if (result.success) {
+                    showToast(`브랜치 '${name}'가 생성되고 전환되었습니다`, 'success');
+                    
+                    // 터미널에 로그 추가
+                    const terminalLog = document.getElementById('terminalLog');
+                    terminalLog.innerHTML += `
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: var(--accent-green);">✓</span> 
+                            <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                            브랜치 '${name}' 생성 및 전환 완료
+                        </div>
+                    `;
+                    terminalLog.scrollTop = terminalLog.scrollHeight;
+                    
+                    // 브랜치 그래프 업데이트 (간단한 시각화)
+                    updateBranchGraph();
+                } else {
+                    showToast(`브랜치 생성 실패: ${result.error || '알 수 없는 오류'}`, 'error');
+                }
+            } catch (error) {
+                console.error('브랜치 생성 실패:', error);
+                showToast('브랜치 생성 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 브랜치 그래프 업데이트
+        async function updateBranchGraph() {
+            if (!currentProject) return;
+            
+            try {
+                const result = await window.electron.dgit.listBranches(currentProject.path);
+                
+                if (result.success) {
+                    const branchGraph = document.getElementById('branchGraph');
+                    branchGraph.innerHTML = ''; // 기존 내용 제거
+                    
+                    const branches = result.output.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line && !line.startsWith('*'))
+                        .map(line => line.replace(/^\*\s*/, ''));
+                    
+                    branches.forEach((branch, index) => {
+                        const newNode = document.createElement('div');
+                        newNode.className = 'branch-node';
+                        newNode.style.left = (index * 80 + 50) + 'px';
+                        newNode.style.top = (Math.sin(index) * 30 + 100) + 'px';
+                        newNode.title = branch;
+                        branchGraph.appendChild(newNode);
+                    });
+                }
+            } catch (error) {
+                console.error('브랜치 그래프 업데이트 실패:', error);
+            }
+        }
+
+        // 모달 관련 함수들
+        function showModal(title, subtitle, body, confirmCallback = null) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalSubtitle').textContent = subtitle;
+            document.getElementById('modalBody').innerHTML = body;
+            document.getElementById('modalOverlay').classList.add('show');
+            
+            // 확인 버튼 콜백 설정
+            window.currentModalCallback = confirmCallback;
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('show');
+            window.currentModalCallback = null;
+        }
+
+        function confirmModal() {
+            if (window.currentModalCallback) {
+                window.currentModalCallback();
+            } else {
+                closeModal();
+            }
+        }
+
+        // 알림 토글
+        function toggleNotifications() {
+            notificationsEnabled = !notificationsEnabled;
+            
+            const toggleButton = document.getElementById('notificationToggle');
+            const toggleText = document.getElementById('notificationToggleText');
+            const notificationIcon = document.getElementById('notificationIcon');
+            
+            if (notificationsEnabled) {
+                toggleButton.className = 'btn btn-primary';
+                toggleText.textContent = '켜짐';
+                notificationIcon.textContent = '🔔';
+                showToast('알림이 활성화되었습니다', 'success');
+            } else {
+                toggleButton.className = 'btn btn-secondary';
+                toggleText.textContent = '꺼짐';
+                notificationIcon.textContent = '🔕';
+                showToast('알림이 비활성화되었습니다', 'warning');
+            }
+            
+            // 설정 저장
+            saveNotificationSettings();
+        }
+
+        // 알림 설정 저장
+        async function saveNotificationSettings() {
+            try {
+                const config = await window.electron.config.load();
+                if (config.success) {
+                    config.config.notifications = notificationsEnabled;
+                    await window.electron.config.save(config.config);
+                }
+            } catch (error) {
+                console.error('알림 설정 저장 실패:', error);
+            }
+        }
+
+        // 토스트 알림
+        function showToast(message, type = 'info') {
+            // 알림이 비활성화된 경우 표시하지 않음
+            if (!notificationsEnabled) {
+                return;
+            }
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 60px;
+                right: 20px;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 12px 16px;
+                min-width: 250px;
+                max-width: 400px;
+                z-index: 10000;
+                animation: toastSlideIn 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                border-left: 4px solid ${type === 'success' ? 'var(--accent-green)' : type === 'error' ? 'var(--accent-red)' : type === 'warning' ? 'var(--accent-orange)' : 'var(--accent-blue)'};
+            `;
+            
+            toast.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                    <span style="color: var(--text-primary); font-weight: 500;">${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // 시스템 알림도 표시
+            if (window.electron && window.electron.showNotification) {
+                try {
+                    window.electron.showNotification('DGit MAC', message);
+                } catch (error) {
+                    console.log('시스템 알림 표시 실패:', error);
+                }
+            }
+            
+            // 3초 후 자동 제거
+            setTimeout(() => {
+                toast.style.animation = 'toastSlideIn 0.3s ease reverse';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // 특정 커밋으로 복원
+        async function restoreToCommit(commitHash) {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            showModal('커밋으로 복원', `이 커밋으로 복원하시겠습니까?`, `
+                <div style="padding: 20px;">
+                    <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                        모든 파일이 커밋 <code>${commitHash}</code> 상태로 복원됩니다.<br>
+                        <strong style="color: var(--accent-red);">주의: 현재 변경사항은 모두 사라집니다.</strong>
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button class="btn btn-secondary" onclick="closeModal()" style="padding: 12px 20px !important; background: #1a1a1a !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;">취소</button>
+                        <button class="btn btn-primary" onclick="performRestoreToCommit('${commitHash}')" style="padding: 12px 20px !important; background: #007aff !important; color: #ffffff !important; font-size: 0.95rem !important; min-height: 40px !important; border-radius: 8px !important; border: none !important; box-shadow: 0 2px 8px rgba(0, 122, 255, 0.5) !important;">복원 실행</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        // 커밋으로 복원 실행
+        async function performRestoreToCommit(commitHash) {
+            closeModal();
+            
+            try {
+                showToast('커밋으로 복원하는 중...', 'info');
+                
+                const result = await window.electron.dgit.command('reset', ['--hard', commitHash], currentProject.path);
+                
+                if (result.success) {
+                    showToast(`커밋 ${commitHash}로 성공적으로 복원되었습니다`, 'success');
+                    await loadProjectData();
+                } else {
+                    showToast(`복원 실패: ${result.error || '알 수 없는 오류'}`, 'error');
+                }
+            } catch (error) {
+                console.error('커밋 복원 실패:', error);
+                showToast('커밋 복원 중 오류가 발생했습니다', 'error');
+            }
+        }
+
+        // 커밋 변경사항 보기
+        async function viewCommitDiff(commitHash) {
+            if (!currentProject) {
+                showToast('프로젝트가 선택되지 않았습니다', 'warning');
+                return;
+            }
+
+            try {
+                const result = await window.electron.dgit.command('show', ['--name-only', commitHash], currentProject.path);
+                
+                if (result.success) {
+                    const files = result.output.split('\n').filter(line => line.trim() && !line.startsWith('commit'));
+                    
+                    showModal('커밋 변경사항', `커밋 ${commitHash}의 변경된 파일`, `
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            ${files.length > 0 ? files.map(file => `
+                                <div style="padding: 8px; background: var(--bg-secondary); margin-bottom: 4px; border-radius: 4px;">
+                                    📄 ${file}
+                                </div>
+                            `).join('') : '<p>변경된 파일이 없습니다.</p>'}
+                        </div>
+                    `);
+                } else {
+                    showToast('커밋 변경사항을 가져올 수 없습니다', 'error');
+                }
+            } catch (error) {
+                console.error('커밋 변경사항 조회 실패:', error);
+                showToast('커밋 변경사항 조회에 실패했습니다', 'error');
+            }
+        }
+
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (e.metaKey || e.ctrlKey) {
+                switch(e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        selectNewProject();
+                        break;
+                    case 'o':
+                        e.preventDefault();
+                        selectExistingProject();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        if (currentProject) {
+                            commitChanges();
+                        }
+                        break;
+                    case 'w':
+                        e.preventDefault();
+                        goHome();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        showToast('상태를 새로고침했습니다', 'success');
+                        break;
+                }
+            }
+            
+            if (e.key === 'Escape') {
+                if (document.getElementById('modalOverlay').classList.contains('show')) {
+                    closeModal();
+                } else if (currentProject) {
+                    goHome();
+                }
+            }
+        });
+
+        // 모달 오버레이 클릭시 닫기
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
