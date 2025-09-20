@@ -47,3 +47,4 @@ pids/
 # DGit Binaries
 dgit/dgit
 dgit/
+/dgit.exe
