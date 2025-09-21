@@ -26,9 +26,29 @@
 ### **1. 설치**
 
 [최신 릴리즈 페이지에서 `DGit`을 다운로드](https://github.com/3pxTeam/DGIT/releases)하십시오.
+설치 프로그램에 대한 자세한 사용 방법은 각 릴리즈 페이지에서 별도로 제공됩니다.
 
-* **DGit CLI:** `dgit` 실행 파일을 다운로드 받아 시스템 `$PATH`에 추가하여 터미널에서 사용합니다.
-* **DGit GUI:** `dgit-mac` 앱을 다운로드 받아 애플리케이션 폴더로 이동 후 실행합니다.
+또는,
+
+### **개발 환경에서 빌드 및 실행**
+
+#### CLI: 프로젝트 루트 디렉토리에서 아래 명령어를 실행하여 DGit CLI를 빌드하고 실행할 수 있습니다.
+```Bash
+
+# 빌드 후 실행 (파일명 dgit으로 지정)
+go build -o dgit
+./dgit --help
+
+# 또는 빌드 없이 실행
+go run main.go --help
+```
+#### GUI: ui 디렉토리로 이동하여 필요한 패키지를 설치한 후 실행합니다.
+```Bash
+
+cd ui
+npm install
+npm start
+```
 
 ### **2. 커밋 및 복원**
 
