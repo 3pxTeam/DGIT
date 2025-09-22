@@ -49,3 +49,4 @@ dgit/dgit
 dgit/
 /dgit.exe
 /dgit
+/ui/.dgit/
