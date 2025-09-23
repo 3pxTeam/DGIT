@@ -689,3 +689,435 @@ button.btn-secondary:hover, .btn-secondary:hover {
 .content-section::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* 향상된 기본 프로그레스 바 */
+.enhanced-progress-container {
+    padding: 20px;
+    text-align: center;
+}
+
+.enhanced-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.enhanced-progress-message {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.enhanced-progress-percentage {
+    color: var(--accent-blue);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.enhanced-progress-bar-wrapper {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.enhanced-progress-bar-wrapper .progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.enhanced-progress-bar-wrapper .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+}
+
+.enhanced-progress-bar-wrapper .progress-fill.animated::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: enhancedProgressShine 2s infinite;
+}
+
+.enhanced-progress-bar-wrapper .progress-fill[data-progress="100"] {
+    background: linear-gradient(90deg, var(--accent-green), #20c640);
+    animation: enhancedProgressComplete 0.8s ease-in-out;
+}
+
+/* 원형 프로그레스 바 */
+.circular-progress-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+.circular-progress {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.circular-progress-svg {
+    transform: rotate(-90deg);
+}
+
+.circular-progress-bg {
+    fill: none;
+    stroke: var(--bg-tertiary);
+    stroke-width: 4;
+}
+
+.circular-progress-fill {
+    fill: none;
+    stroke: var(--accent-blue);
+    stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.circular-progress-text {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.circular-progress-percentage {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.circular-progress-message {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* 스텝 프로그레스 바 */
+.step-progress-container {
+    position: relative;
+    padding: 20px 0;
+}
+
+.step-progress-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    height: 2px;
+    background: var(--accent-blue);
+    transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1;
+}
+
+.step-progress-steps {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.step-indicator {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.3s ease;
+}
+
+.step-item.completed .step-indicator {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: white;
+}
+
+.step-item.current .step-indicator {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+    animation: stepIndicatorPulse 2s infinite;
+}
+
+.step-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-weight: 500;
+}
+
+.step-item.completed .step-label,
+.step-item.current .step-label {
+    color: var(--text-primary);
+}
+
+/* 실시간 프로그레스 바 */
+.realtime-progress-container {
+    padding: 24px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.realtime-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.realtime-progress-title {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.realtime-progress-status {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.realtime-progress-bar {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.realtime-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 6px;
+    transition: width 0.3s ease;
+    position: relative;
+}
+
+.realtime-progress-fill.completed {
+    background: linear-gradient(90deg, var(--accent-green), #20c640);
+    animation: realtimeProgressComplete 0.6s ease-in-out;
+}
+
+.realtime-progress-pulse {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: realtimeProgressPulse 2s infinite;
+}
+
+.realtime-progress-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.realtime-progress-speed::before {
+    content: '⚡ ';
+}
+
+.realtime-progress-eta::before {
+    content: '⏱ ';
+}
+
+/* 파일 프로그레스 바 */
+.file-progress-container {
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.file-progress-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.file-progress-icon {
+    font-size: 1.5rem;
+    opacity: 0.8;
+}
+
+.file-progress-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-progress-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-progress-size {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.file-progress-percent {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+.file-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.file-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+    border-radius: 3px;
+    transition: width 0.2s ease;
+}
+
+.file-progress-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.file-progress-transferred,
+.file-progress-speed,
+.file-progress-remaining {
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* 향상된 프로그레스 바 애니메이션 */
+@keyframes enhancedProgressShine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes enhancedProgressComplete {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.2); }
+}
+
+@keyframes stepIndicatorPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(0, 122, 255, 0);
+        transform: scale(1.05);
+    }
+}
+
+@keyframes realtimeProgressComplete {
+    0% { transform: scaleY(1); }
+    50% { transform: scaleY(1.2); }
+    100% { transform: scaleY(1); }
+}
+
+@keyframes realtimeProgressPulse {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* 다크/라이트 테마 대응 */
+[data-theme="light"] .enhanced-progress-container,
+[data-theme="light"] .realtime-progress-container,
+[data-theme="light"] .file-progress-container {
+    background: #f5f5f7;
+    border-color: #d1d1d6;
+}
+
+[data-theme="light"] .enhanced-progress-bar-wrapper .progress-bar,
+[data-theme="light"] .realtime-progress-bar,
+[data-theme="light"] .file-progress-bar {
+    background: #e5e5ea;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 480px) {
+    .file-progress-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .file-progress-stats {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .realtime-progress-details {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .step-progress-steps {
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .step-progress-line {
+        width: 2px !important;
+        height: calc(100% - 40px);
+        left: 50%;
+        top: 20px;
+        transform: translateX(-50%);
+    }
+
+    .step-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        width: 100%;
+        text-align: left;
+    }
+
+    .step-label {
+        text-align: left;
+    }
+}
