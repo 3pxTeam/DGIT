@@ -16,6 +16,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // 앱 초기화
 async function initializeApp() {
     try {
+        // 프로그레스바
+        // eslint-disable-next-line no-undef
+        showStepProgress('splashScreen', 1, 3, ['설정 로드', '프로젝트 확인', '완료']);
+
         // 설정 로드
         await loadAppConfig();
 
