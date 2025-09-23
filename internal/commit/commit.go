@@ -279,7 +279,7 @@ func (cm *CommitManager) selectFastestDeltaAlgorithm(files []*staging.StagedFile
 	return "bsdiff_fast"
 }
 
-// createLZ4UltraFast - FIXED VERSION with consistent structured format
+// createLZ4UltraFast - FIXED VERSION with improved compression validation
 // Uses streaming LZ4 compression with structured headers for proper extraction
 func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version int, startTime time.Time) (*CompressionResult, error) {
 	compressionStartTime := time.Now()
@@ -349,16 +349,32 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 	compressedSize := fileInfo.Size()
 	compressionTime := float64(time.Since(compressionStartTime).Nanoseconds()) / 1000000.0
 
-	// Verify compression worked properly
-	if compressedSize <= 50 && originalSize > 1000 {
+	// 수정: 개선된 압축 검증 로직
+	if originalSize == 0 {
 		os.Remove(hotCachePath)
-		return nil, fmt.Errorf("compression failed: output too small (%d bytes) for input %d bytes", compressedSize, originalSize)
+		return nil, fmt.Errorf("no data to compress")
 	}
 
-	// Safe compression ratio calculation
+	// 압축률 기반 검증 (압축되지 않고 20% 이상 커진 경우만 오류)
+	compressionRatio := float64(compressedSize) / float64(originalSize)
+	if compressionRatio > 1.2 {
+		os.Remove(hotCachePath)
+		return nil, fmt.Errorf("compression failed: file became %.1f%% larger (from %d to %d bytes)",
+			(compressionRatio-1)*100, originalSize, compressedSize)
+	}
+
+	// 최소 크기 검증을 더 관대하게 조정 (빈 파일이 아닌지만 확인)
+	if compressedSize == 0 {
+		os.Remove(hotCachePath)
+		return nil, fmt.Errorf("compression failed: output file is empty")
+	}
+
+	// 수정: 안전한 압축 비율 계산
 	var ratio float64
 	if originalSize > 0 {
 		ratio = float64(compressedSize) / float64(originalSize)
+	} else {
+		ratio = 1.0 // 원본이 0 바이트인 경우 비율을 1로 설정
 	}
 
 	return &CompressionResult{

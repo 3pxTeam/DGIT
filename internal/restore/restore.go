@@ -230,11 +230,6 @@ func (rm *RestoreManager) tryColdCacheRestore(commit *log.Commit, filesToRestore
 // extractFromLZ4Cache extracts files from LZ4 hot cache with 0.2s performance
 // Optimized for maximum speed with streamlined decompression
 func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []string, result *RestoreResult) error {
-	// Since we store files without complex headers for speed, reconstruct using commit metadata
-
-	// Load commit metadata for original file information
-	logManager := log.NewLogManager(rm.DgitDir)
-
 	// Extract version number from LZ4 filename (e.g., v1.lz4 → 1)
 	fileName := filepath.Base(lz4Path)
 	versionStr := strings.TrimSuffix(strings.TrimPrefix(fileName, "v"), ".lz4")
@@ -243,7 +238,8 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 		return fmt.Errorf("failed to parse version from filename %s: %w", fileName, err)
 	}
 
-	// Get comprehensive commit metadata
+	// Load commit metadata for original file information
+	logManager := log.NewLogManager(rm.DgitDir)
 	commit, err := logManager.GetCommit(version)
 	if err != nil {
 		return fmt.Errorf("failed to load commit v%d: %w", version, err)
@@ -273,8 +269,8 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	// Currently handles single file per commit - TODO: extend for multiple files
-	// Find the staged file from commit metadata
+	// 수정: 모든 파일을 처리하도록 break 제거
+	processedFiles := 0
 	for fileName := range commit.Metadata {
 		// Check if this file should be restored based on user request
 		if len(filesToRestore) > 0 {
@@ -302,9 +298,11 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 			fmt.Printf("Restored %s (%d bytes)\n", fileName, len(decompressedData))
 		}
 
-		// Currently handle only single file per commit
-		break
+		processedFiles++
 	}
+
+	// 로그 개선: 처리된 파일 수 표시
+	fmt.Printf("Processed %d files from hot cache\n", processedFiles)
 
 	result.TotalFilesCount = len(result.RestoredFiles) + len(result.SkippedFiles) + len(result.ErrorFiles)
 	return nil

@@ -22,11 +22,11 @@ type StagedFile struct {
 	Size         int64     `json:"size"`
 	ModTime      time.Time `json:"mod_time"`
 	AddedAt      time.Time `json:"added_at"`
-	
+
 	// Cache integration fields
-	Hash          string        `json:"hash"`           // File hash for cache key
-	CacheLevel    string        `json:"cache_level"`    // hot/warm/cold
-	PreCompressed bool          `json:"pre_compressed"` // LZ4 pre-compression status
+	Hash          string        `json:"hash"`               // File hash for cache key
+	CacheLevel    string        `json:"cache_level"`        // hot/warm/cold
+	PreCompressed bool          `json:"pre_compressed"`     // LZ4 pre-compression status
 	Metadata      *FileMetadata `json:"metadata,omitempty"` // Pre-extracted metadata
 }
 
@@ -63,7 +63,7 @@ type StagingArea struct {
 	DgitDir     string
 	StagingFile string
 	files       map[string]*StagedFile
-	
+
 	// Cache directories
 	hotCacheDir  string
 	warmCacheDir string
@@ -75,16 +75,16 @@ type StagingArea struct {
 func NewStagingArea(dgitDir string) *StagingArea {
 	stagingDir := filepath.Join(dgitDir, "staging")
 	os.MkdirAll(stagingDir, 0755)
-	
+
 	// Initialize 3-tier cache directories
 	hotCache := filepath.Join(dgitDir, "cache", "hot")
 	warmCache := filepath.Join(dgitDir, "cache", "warm")
 	coldCache := filepath.Join(dgitDir, "cache", "cold")
-	
+
 	os.MkdirAll(hotCache, 0755)
 	os.MkdirAll(warmCache, 0755)
 	os.MkdirAll(coldCache, 0755)
-	
+
 	return &StagingArea{
 		DgitDir:      dgitDir,
 		StagingFile:  filepath.Join(stagingDir, "staged.json"),
@@ -114,7 +114,7 @@ func (s *StagingArea) LoadStaging() error {
 
 	s.files = files
 	s.validateCacheIntegrity()
-	
+
 	return nil
 }
 
@@ -146,9 +146,10 @@ func (s *StagingArea) SaveStaging() error {
 }
 
 // AddFile adds a file to the staging area with ultra-fast cache pre-processing
+// AddFile 함수에서 해시 생성 부분 수정
 func (s *StagingArea) AddFile(path string) error {
 	startTime := time.Now()
-	
+
 	// Convert to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -173,7 +174,7 @@ func (s *StagingArea) AddFile(path string) error {
 		relPath = absPath
 	}
 
-	// Generate file hash for cache key
+	// 수정: 개선된 해시 생성 함수 사용
 	hash, err := s.generateFileHash(absPath)
 	if err != nil {
 		return fmt.Errorf("failed to generate file hash: %w", err)
@@ -181,7 +182,7 @@ func (s *StagingArea) AddFile(path string) error {
 
 	// Determine cache level based on file characteristics
 	cacheLevel := s.determineCacheLevel(absPath, fileInfo.Size())
-	
+
 	// Create staged file entry with ultra-fast cache integration
 	stagedFile := &StagedFile{
 		Path:          relPath,
@@ -201,11 +202,11 @@ func (s *StagingArea) AddFile(path string) error {
 	}
 
 	s.files[absPath] = stagedFile
-	
+
 	processingTime := time.Since(startTime)
-	fmt.Printf("Added %s to %s cache (processed in %v)\n", 
+	fmt.Printf("Added %s to %s cache (processed in %v)\n",
 		filepath.Base(path), cacheLevel, processingTime)
-	
+
 	return nil
 }
 
@@ -253,7 +254,7 @@ func (s *StagingArea) createLZ4PrecompressedCache(file *StagedFile) error {
 	// Ultra-fast LZ4 compression using streaming
 	lz4Writer := lz4.NewWriter(cacheFile)
 	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
-	
+
 	// Stream copy with proper error handling
 	written, err := io.Copy(lz4Writer, srcFile)
 	if err != nil {
@@ -261,7 +262,7 @@ func (s *StagingArea) createLZ4PrecompressedCache(file *StagedFile) error {
 		os.Remove(cachePath)
 		return fmt.Errorf("failed to compress file: %w", err)
 	}
-	
+
 	// Ensure proper close
 	err = lz4Writer.Close()
 	if err != nil {
@@ -364,7 +365,7 @@ func (s *StagingArea) extractSketchMetadata(path string, metadata *FileMetadata)
 // cacheFileInTier caches file in the appropriate tier for ultra-fast access
 func (s *StagingArea) cacheFileInTier(file *StagedFile) error {
 	cachePath := s.getCachePath(file.Hash, file.CacheLevel)
-	
+
 	// For hot cache, file is already pre-compressed
 	if file.CacheLevel == "hot" && file.PreCompressed {
 		return nil
@@ -380,12 +381,12 @@ func (s *StagingArea) determineCacheLevel(path string, size int64) string {
 	if size < 50*1024*1024 {
 		return "hot"
 	}
-	
+
 	// Warm cache for medium files (50MB - 200MB)
 	if size < 200*1024*1024 {
 		return "warm"
 	}
-	
+
 	// Cold cache for large files (> 200MB)
 	return "cold"
 }
@@ -403,7 +404,7 @@ func (s *StagingArea) getCachePath(hash, level string) string {
 	default:
 		cacheDir = s.warmCacheDir
 	}
-	
+
 	return filepath.Join(cacheDir, hash)
 }
 
@@ -446,27 +447,79 @@ func (s *StagingArea) demoteCacheLevel(file *StagedFile) {
 }
 
 // generateFileHash generates a hash for cache key
+// 수정: 파일 크기에 따른 적응적 해시로 일관성 확보
 func (s *StagingArea) generateFileHash(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open file for hashing: %w", err)
 	}
 	defer file.Close()
 
-	hash := sha256.New()
-	
-	// For large files, hash only first 64KB for speed
-	buffer := make([]byte, 64*1024)
-	n, _ := file.Read(buffer)
-	
-	hash.Write(buffer[:n])
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	hasher := sha256.New()
+
+	// 파일 정보 추가 (경로, 크기, 수정 시간)
+	if stat, err := file.Stat(); err == nil {
+		// 파일 기본 정보 해시에 포함
+		hasher.Write([]byte(fmt.Sprintf("path:%s:size:%d:modtime:%d:",
+			path, stat.Size(), stat.ModTime().Unix())))
+
+		// 파일 크기에 따른 적응적 해시 전략
+		if stat.Size() > 100*1024*1024 { // 100MB 이상 대용량 파일
+			// 첫 64KB + 마지막 64KB + 중간 샘플링
+			buffer := make([]byte, 64*1024)
+
+			// 파일 시작 부분
+			n, _ := file.Read(buffer)
+			hasher.Write(buffer[:n])
+
+			// 중간 부분 (파일 크기의 50% 지점)
+			if stat.Size() > 128*1024 {
+				file.Seek(stat.Size()/2, io.SeekStart)
+				n, _ = file.Read(buffer[:4096]) // 4KB 샘플
+				hasher.Write(buffer[:n])
+			}
+
+			// 파일 끝 부분
+			if stat.Size() > 128*1024 {
+				file.Seek(-64*1024, io.SeekEnd)
+				n, _ = file.Read(buffer)
+				hasher.Write(buffer[:n])
+			}
+
+		} else if stat.Size() > 10*1024*1024 { // 10MB~100MB 중간 크기 파일
+			// 첫 32KB + 마지막 32KB
+			buffer := make([]byte, 32*1024)
+
+			// 파일 시작
+			n, _ := file.Read(buffer)
+			hasher.Write(buffer[:n])
+
+			// 파일 끝
+			if stat.Size() > 64*1024 {
+				file.Seek(-32*1024, io.SeekEnd)
+				n, _ = file.Read(buffer)
+				hasher.Write(buffer[:n])
+			}
+
+		} else { // 10MB 이하 작은 파일
+			// 전체 파일 해시 (기존 방식)
+			_, err = io.Copy(hasher, file)
+			if err != nil {
+				return "", fmt.Errorf("failed to hash file content: %w", err)
+			}
+		}
+	} else {
+		// 파일 정보를 가져올 수 없는 경우 경로만 해시
+		hasher.Write([]byte(path))
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // AddPattern adds files matching a pattern to staging area with ultra-fast processing
 func (s *StagingArea) AddPattern(pattern string) (*AddResult, error) {
 	startTime := time.Now()
-	
+
 	if pattern == "." {
 		// Add all design files in current directory
 		result, err := s.addAllDesignFiles(".")
@@ -605,7 +658,7 @@ func (s *StagingArea) ClearStaging() error {
 			os.Remove(cachePath)
 		}
 	}
-	
+
 	s.files = make(map[string]*StagedFile)
 	s.cacheStats = &CacheStats{}
 	return s.SaveStaging()
@@ -634,7 +687,7 @@ func isDesignFile(path string) bool {
 		".afdesign", ".afphoto", ".blend", ".c4d",
 		".max", ".mb", ".ma", ".fbx", ".obj",
 	}
-	
+
 	for _, supportedExt := range supportedExts {
 		if ext == supportedExt {
 			return true
