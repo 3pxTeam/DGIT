@@ -416,18 +416,27 @@ function showErrorState(container, title, description, retryCallback = null) {
     }
 }
 
-// 진행률 바 표시
-function showProgressBar(container, progress = 0, message = '') {
+// ============ 향상된 프로그레스 바 함수들 ============
+
+// 기본 프로그레스 바 표시 (향상된 버전)
+function showProgressBar(container, progress = 0, message = '', animated = true) {
     const progressBar = `
-        <div style="padding: 20px;">
-            <div style="margin-bottom: 12px; color: var(--text-secondary); font-size: 0.9rem;">
-                ${message}
+        <div class="enhanced-progress-container">
+            <div class="enhanced-progress-header">
+                <div class="enhanced-progress-message">${message}</div>
+                <div class="enhanced-progress-percentage">${progress}%</div>
             </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${progress}%;"></div>
+            <div class="enhanced-progress-bar-wrapper">
+                <div class="progress-message">${message}</div>
+                <div class="progress-percentage">${progress}%</div>
             </div>
-            <div style="margin-top: 8px; text-align: center; color: var(--text-secondary); font-size: 0.8rem;">
-                ${progress}%
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar">
+                    <div class="progress-fill ${animated ? 'animated' : ''}" 
+                         style="width: ${progress}%;"
+                         data-progress="${progress}">
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -438,8 +447,250 @@ function showProgressBar(container, progress = 0, message = '') {
 
     if (container) {
         container.innerHTML = progressBar;
+
+        // 애니메이션 효과
+        if (animated) {
+            const progressFill = container.querySelector('.progress-fill');
+            if (progressFill) {
+                progressFill.style.width = '0%';
+                setTimeout(() => {
+                    progressFill.style.width = progress + '%';
+                }, 100);
+            }
+        }
     }
 }
+
+// 프로그레스 바 업데이트 (기존 바가 있을 때)
+function updateProgressBar(container, progress, message = '') {
+    if (typeof container === 'string') {
+        container = document.getElementById(container);
+    }
+
+    if (container) {
+        const progressFill = container.querySelector('.progress-fill');
+        const progressMessage = container.querySelector('.enhanced-progress-message');
+        const progressPercentage = container.querySelector('.enhanced-progress-percentage');
+
+        if (progressFill) {
+            progressFill.style.width = progress + '%';
+            progressFill.setAttribute('data-progress', progress);
+        }
+
+        if (progressMessage && message) {
+            progressMessage.textContent = message;
+        }
+
+        if (progressPercentage) {
+            progressPercentage.textContent = progress + '%';
+        }
+    }
+}
+
+// 원형 프로그레스 바 (특별한 작업용)
+function showCircularProgress(container, progress = 0, message = '') {
+    const circularProgress = `
+        <div class="circular-progress-container">
+            <div class="circular-progress" data-progress="${progress}">
+                <svg class="circular-progress-svg" width="80" height="80">
+                    <circle cx="40" cy="40" r="35" class="circular-progress-bg"></circle>
+                    <circle cx="40" cy="40" r="35" class="circular-progress-fill"
+                            style="stroke-dasharray: ${2 * Math.PI * 35}; 
+                                   stroke-dashoffset: ${2 * Math.PI * 35 * (100 - progress) / 100};"></circle>
+                </svg>
+                <div class="circular-progress-text">
+                    <div class="circular-progress-percentage">${progress}%</div>
+                </div>
+            </div>
+            <div class="circular-progress-message">${message}</div>
+        </div>
+    `;
+
+    if (typeof container === 'string') {
+        container = document.getElementById(container);
+    }
+
+    if (container) {
+        container.innerHTML = circularProgress;
+    }
+}
+
+// 멀티 스텝 프로그레스 바
+function showStepProgress(container, currentStep, totalSteps, stepLabels = []) {
+    const steps = Array.from({ length: totalSteps }, (_, i) => {
+        const stepNumber = i + 1;
+        const isCompleted = stepNumber < currentStep;
+        const isCurrent = stepNumber === currentStep;
+        const label = stepLabels[i] || `Step ${stepNumber}`;
+
+        return `
+            <div class="step-item ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}">
+                <div class="step-indicator">
+                    ${isCompleted ? '✓' : stepNumber}
+                </div>
+                <div class="step-label">${label}</div>
+            </div>
+        `;
+    }).join('');
+
+    const stepProgress = `
+        <div class="step-progress-container">
+            <div class="step-progress-line" style="width: ${((currentStep - 1) / (totalSteps - 1)) * 100}%"></div>
+            <div class="step-progress-steps">
+                ${steps}
+            </div>
+        </div>
+    `;
+
+    if (typeof container === 'string') {
+        container = document.getElementById(container);
+    }
+
+    if (container) {
+        container.innerHTML = stepProgress;
+    }
+}
+
+// 실시간 프로그레스 바 (스트리밍용)
+function showRealtimeProgress(container, initialMessage = '작업 준비 중...') {
+    const realtimeProgress = `
+        <div class="realtime-progress-container">
+            <div class="realtime-progress-header">
+                <div class="realtime-progress-title" id="realtimeProgressTitle">${initialMessage}</div>
+                <div class="realtime-progress-status" id="realtimeProgressStatus">0%</div>
+            </div>
+            <div class="realtime-progress-bar">
+                <div class="realtime-progress-fill" id="realtimeProgressFill" style="width: 0%;"></div>
+                <div class="realtime-progress-pulse"></div>
+            </div>
+            <div class="realtime-progress-details" id="realtimeProgressDetails">
+                <div class="realtime-progress-speed" id="progressSpeed">--</div>
+                <div class="realtime-progress-eta" id="progressETA">--</div>
+            </div>
+        </div>
+    `;
+
+    if (typeof container === 'string') {
+        container = document.getElementById(container);
+    }
+
+    if (container) {
+        container.innerHTML = realtimeProgress;
+    }
+
+    // 실시간 업데이트 함수 반환
+    return {
+        update: (progress, message, speed = null, eta = null) => {
+            const fill = document.getElementById('realtimeProgressFill');
+            const title = document.getElementById('realtimeProgressTitle');
+            const status = document.getElementById('realtimeProgressStatus');
+            const speedEl = document.getElementById('progressSpeed');
+            const etaEl = document.getElementById('progressETA');
+
+            if (fill) fill.style.width = progress + '%';
+            if (title && message) title.textContent = message;
+            if (status) status.textContent = progress + '%';
+            if (speedEl && speed) speedEl.textContent = speed;
+            if (etaEl && eta) etaEl.textContent = eta;
+        },
+        complete: (message = '완료!') => {
+            const title = document.getElementById('realtimeProgressTitle');
+            const status = document.getElementById('realtimeProgressStatus');
+            const fill = document.getElementById('realtimeProgressFill');
+
+            if (title) title.textContent = message;
+            if (status) status.textContent = '100%';
+            if (fill) {
+                fill.style.width = '100%';
+                fill.classList.add('completed');
+            }
+        }
+    };
+}
+
+// 파일 업로드/다운로드 전용 프로그레스 바
+function showFileProgress(container, fileName, fileSize = 0) {
+    const fileProgress = `
+        <div class="file-progress-container">
+            <div class="file-progress-header">
+                <div class="file-progress-icon">📁</div>
+                <div class="file-progress-info">
+                    <div class="file-progress-name" id="fileProgressName">${fileName}</div>
+                    <div class="file-progress-size" id="fileProgressSize">${formatFileSize(fileSize)}</div>
+                </div>
+                <div class="file-progress-percent" id="fileProgressPercent">0%</div>
+            </div>
+            <div class="file-progress-bar">
+                <div class="file-progress-fill" id="fileProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="file-progress-stats">
+                <span class="file-progress-transferred" id="fileTransferred">0 B</span>
+                <span class="file-progress-speed" id="fileSpeed">-- KB/s</span>
+                <span class="file-progress-remaining" id="fileRemaining">--</span>
+            </div>
+        </div>
+    `;
+
+    if (typeof container === 'string') {
+        container = document.getElementById(container);
+    }
+
+    if (container) {
+        container.innerHTML = fileProgress;
+    }
+
+    let startTime = Date.now();
+    let lastUpdate = startTime;
+    let lastTransferred = 0;
+
+    return {
+        update: (transferred, total) => {
+            const now = Date.now();
+            const progress = Math.round((transferred / total) * 100);
+
+            // UI 업데이트
+            const fill = document.getElementById('fileProgressFill');
+            const percent = document.getElementById('fileProgressPercent');
+            const transferredEl = document.getElementById('fileTransferred');
+            const speedEl = document.getElementById('fileSpeed');
+            const remainingEl = document.getElementById('fileRemaining');
+
+            if (fill) fill.style.width = progress + '%';
+            if (percent) percent.textContent = progress + '%';
+            if (transferredEl) transferredEl.textContent = formatFileSize(transferred);
+
+            // 속도 계산 (1초마다)
+            if (now - lastUpdate >= 1000) {
+                const speed = (transferred - lastTransferred) / ((now - lastUpdate) / 1000);
+                const remaining = (total - transferred) / speed;
+
+                if (speedEl) speedEl.textContent = formatFileSize(speed) + '/s';
+                if (remainingEl && remaining > 0) {
+                    remainingEl.textContent = formatTime(remaining);
+                }
+
+                lastUpdate = now;
+                lastTransferred = transferred;
+            }
+        },
+        complete: () => {
+            const speedEl = document.getElementById('fileSpeed');
+            const remainingEl = document.getElementById('fileRemaining');
+
+            if (speedEl) speedEl.textContent = '완료';
+            if (remainingEl) remainingEl.textContent = '';
+        }
+    };
+}
+
+// 시간 포맷팅 헬퍼 함수
+function formatTime(seconds) {
+    if (seconds < 60) return Math.round(seconds) + '초';
+    if (seconds < 3600) return Math.round(seconds / 60) + '분';
+    return Math.round(seconds / 3600) + '시간';
+}
+
+// ============ 기존 함수들 계속 ============
 
 // 컨텍스트 메뉴 표시
 function showContextMenu(x, y, items) {
