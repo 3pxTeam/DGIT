@@ -120,7 +120,33 @@ async function performCommit(message) {
     }
 
     try {
-        showToast('변경사항을 커밋하는 중...', 'info');
+        // 커밋 프로그레스 모달 표시
+        showModal('커밋 진행 중', '', `
+            <div style="padding: 20px;">
+                <div id="commitProgressBar" style="margin-bottom: 20px;"></div>
+                <div id="commitProgressText" style="text-align: center; color: var(--text-secondary);">
+                    커밋을 시작합니다...
+                </div>
+            </div>
+        `);
+
+        // 1. 먼저 변경된 파일 수 확인
+        // eslint-disable-next-line no-undef
+        updateProgressBar('commitProgressBar', 5, '변경사항 분석 중...');
+        document.getElementById('commitProgressText').textContent = '변경된 파일을 분석하고 있습니다...';
+
+        const statusResult = await window.electron.dgit.status(currentProject.path);
+        let totalFiles = 0;
+
+        if (statusResult.success && statusResult.output.trim()) {
+            const statusLines = statusResult.output.split('\n').filter(line => line.trim());
+            totalFiles = statusLines.length;
+        }
+
+        // totalFiles가 0이면 기본값 사용 (예외 처리)
+        if (totalFiles === 0) {
+            totalFiles = 1; // 최소 1개로 설정하여 0으로 나누기 방지
+        }
 
         // 터미널에 로그 추가
         const terminalLog = document.getElementById('terminalLog');
@@ -128,73 +154,93 @@ async function performCommit(message) {
             <div style="margin-bottom: 8px;">
                 <span style="color: var(--accent-blue);">ⳳ</span>
                 <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                커밋 시작: ${message}
+                커밋 시작: ${message} (${totalFiles}개 파일)
             </div>
         `;
         terminalLog.scrollTop = terminalLog.scrollHeight;
 
-        // 1단계: 모든 파일 추가 (add .)
+        // 2. 파일 추가 시작 (10% ~ 70%)
+        // eslint-disable-next-line no-undef
+        updateProgressBar('commitProgressBar', 10, '파일 추가 중...');
+        document.getElementById('commitProgressText').textContent = `${totalFiles}개 파일을 스테이징 영역에 추가하고 있습니다...`;
+
+        // 실제 add 명령 실행
         const addResult = await window.electron.dgit.command('add', ['.'], currentProject.path);
 
         if (!addResult.success) {
             throw new Error(`파일 추가 실패: ${addResult.error}`);
         }
 
+        // 파일 추가 완료 시 70%까지
+        const addProgress = 70;
+        // eslint-disable-next-line no-undef
+        updateProgressBar('commitProgressBar', addProgress, `${totalFiles}개 파일 스테이징 완료`);
+        document.getElementById('commitProgressText').textContent = '커밋을 생성하고 있습니다...';
+
         terminalLog.innerHTML += `
             <div style="margin-bottom: 8px;">
                 <span style="color: var(--accent-blue);">📁</span>
                 <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                파일 추가 완료
+                ${totalFiles}개 파일 추가 완료
             </div>
         `;
         terminalLog.scrollTop = terminalLog.scrollHeight;
 
-        // 2단계: 커밋 실행
+        // 3. 커밋 실행 (70% ~ 90%)
+        // eslint-disable-next-line no-undef
+        updateProgressBar('commitProgressBar', 85, '커밋 실행 중...');
+        document.getElementById('commitProgressText').textContent = '변경사항을 저장소에 기록하고 있습니다...';
+
         const commitResult = await window.electron.dgit.command('commit', ['-m', message], currentProject.path);
 
         if (commitResult.success) {
+            // 100% - 완료
+            // eslint-disable-next-line no-undef
+            updateProgressBar('commitProgressBar', 100, '커밋 완료!');
+            document.getElementById('commitProgressText').textContent = '커밋이 성공적으로 완료되었습니다!';
+
             // 성공 로그 추가
             terminalLog.innerHTML += `
                 <div style="margin-bottom: 8px;">
                     <span style="color: var(--accent-green);">✓</span>
                     <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                    커밋 완료: ${message}
+                    커밋 완료: ${message} (${totalFiles}개 파일)
                 </div>
             `;
             terminalLog.scrollTop = terminalLog.scrollHeight;
 
-            showToast('커밋이 성공적으로 완료되었습니다', 'success');
+            // 잠시 후 모달 닫기
+            setTimeout(() => {
+                closeModal();
+                showToast('커밋이 성공적으로 완료되었습니다', 'success');
+            }, 1500);
 
             // 프로젝트 데이터 새로고침
             await loadProjectData();
         } else {
-            // 실패 로그 추가
-            terminalLog.innerHTML += `
-                <div style="margin-bottom: 8px;">
-                    <span style="color: var(--accent-red);">✗</span>
-                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                    커밋 실패: ${commitResult.error || '알 수 없는 오류'}
-                </div>
-            `;
-            terminalLog.scrollTop = terminalLog.scrollHeight;
+            // 실패 처리
+            document.getElementById('commitProgressText').textContent = '커밋 실행 중 오류가 발생했습니다.';
+            // eslint-disable-next-line no-undef
+            updateProgressBar('commitProgressBar', 100, '오류 발생');
 
-            showToast(`커밋 실패: ${commitResult.error || '알 수 없는 오류'}`, 'error');
+            setTimeout(() => {
+                closeModal();
+                showToast(`커밋 실패: ${commitResult.error || '알 수 없는 오류'}`, 'error');
+            }, 2000);
         }
     } catch (error) {
         console.error('커밋 실행 실패:', error);
 
-        // 에러 로그 추가
-        const terminalLog = document.getElementById('terminalLog');
-        terminalLog.innerHTML += `
-            <div style="margin-bottom: 8px;">
-                <span style="color: var(--accent-red);">✗</span>
-                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                커밋 오류: ${error.message}
-            </div>
-        `;
-        terminalLog.scrollTop = terminalLog.scrollHeight;
+        if (document.getElementById('commitProgressText')) {
+            document.getElementById('commitProgressText').textContent = '커밋 중 오류가 발생했습니다.';
+            // eslint-disable-next-line no-undef
+            updateProgressBar('commitProgressBar', 100, '오류');
+        }
 
-        showToast('커밋 중 오류가 발생했습니다', 'error');
+        setTimeout(() => {
+            closeModal();
+            showToast('커밋 중 오류가 발생했습니다', 'error');
+        }, 2000);
     }
 }
 
