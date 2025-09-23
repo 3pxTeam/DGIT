@@ -208,31 +208,86 @@ async function loadProjectData() {
     }
 }
 
-// 프로젝트 파일 로드
+// 프로젝트 파일 로드 (프로그레스 바 포함)
 async function loadProjectFiles() {
     if (!currentProject) return;
 
     try {
+        // 초기 프로그레스 바 표시
+        showProgressBar('fileList', 0, '프로젝트 스캔 시작...');
+
+        // 1단계: 디렉토리 스캔 시작 (0% ~ 20%)
+        showProgressBar('fileList', 5, '디렉토리를 분석하는 중...');
+
         const result = await window.electron.scanDirectory(currentProject.path);
 
         if (result.success) {
-            const files = result.files.map(file => ({
-                name: file.name,
-                type: file.type,
-                size: formatFileSize(file.size),
-                modified: formatDate(file.modified),
-                status: 'unknown', // 상태는 별도로 확인
-                path: file.path
-            }));
+            const totalFiles = result.files.length;
+
+            // 파일이 없는 경우 예외 처리
+            if (totalFiles === 0) {
+                hideLoadingSpinner('fileList');
+                renderFiles([]);
+                return;
+            }
+
+            // 2단계: 파일 목록 로드 완료 (20%)
+            showProgressBar('fileList', 20, `${totalFiles}개 파일 발견`);
+
+            // 3단계: 파일 정보 처리 (20% ~ 70%)
+            let processedFiles = 0;
+            const files = [];
+
+            for (const file of result.files) {
+                // 각 파일 처리
+                const processedFile = {
+                    name: file.name,
+                    type: file.type,
+                    size: formatFileSize(file.size),
+                    modified: formatDate(file.modified),
+                    status: 'unknown',
+                    path: file.path
+                };
+
+                files.push(processedFile);
+                processedFiles++;
+
+                // 진행률 계산 (20% ~ 70% 범위)
+                const fileProgress = 20 + Math.round((processedFiles / totalFiles) * 50);
+                showProgressBar('fileList', fileProgress, `파일 정보 처리 중... ${processedFiles}/${totalFiles}`);
+
+                // UI 블로킹 방지를 위한 비동기 처리
+                if (processedFiles % 10 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1));
+                }
+            }
+
+            // 4단계: Git 상태 확인 (70% ~ 90%)
+            showProgressBar('fileList', 75, 'Git 상태 확인 중...');
 
             // DGit 상태로 파일 상태 업데이트
             await updateFileStatuses(files);
-            renderFiles(files);
+
+            // 5단계: 렌더링 준비 (90% ~ 100%)
+            showProgressBar('fileList', 95, '파일 목록 렌더링 중...');
+
+            // 잠시 대기 후 완료
+            await new Promise(resolve => setTimeout(resolve, 200));
+            showProgressBar('fileList', 100, `${totalFiles}개 파일 로드 완료!`);
+
+            // 잠시 후 실제 파일 목록 표시
+            setTimeout(() => {
+                hideLoadingSpinner('fileList');
+                renderFiles(files);
+            }, 800);
+
         } else {
+            hideLoadingSpinner('fileList');
             showToast('파일을 스캔할 수 없습니다', 'error');
         }
     } catch (error) {
         console.error('파일 로드 실패:', error);
+        hideLoadingSpinner('fileList');
         showToast('파일 로드 중 오류가 발생했습니다', 'error');
     }
 }
