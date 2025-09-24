@@ -11,7 +11,16 @@ import (
 	"strings"
 	"time"
 
+	"dgit/internal/scanner" // 추가: 파일 확장자 검증 통합
+
 	"github.com/pierrec/lz4/v4"
+)
+
+const (
+	SmallFileSize  = 50 * 1024 * 1024  // 50MB
+	MediumFileSize = 200 * 1024 * 1024 // 200MB
+	LargeFileSize  = 500 * 1024 * 1024 // 500MB
+	HashSampleSize = 64 * 1024         // 64KB
 )
 
 // StagedFile represents a file in the staging area with cache integration
@@ -161,9 +170,9 @@ func (s *StagingArea) AddFile(path string) error {
 		return fmt.Errorf("file not found: %w", err)
 	}
 
-	// Check if it's a design file
-	if !isDesignFile(absPath) {
-		return fmt.Errorf("not a design file: %s (supported: .ai, .psd, .sketch, .fig, .xd, .blend)", path)
+	// Check if it's a design file using unified function
+	if !scanner.IsDesignFile(absPath) {
+		return fmt.Errorf("not a design file: %s", path)
 	}
 
 	// Get relative path from current directory
@@ -375,17 +384,17 @@ func (s *StagingArea) cacheFileInTier(file *StagedFile) error {
 
 // determineCacheLevel determines cache level based on file characteristics
 func (s *StagingArea) determineCacheLevel(path string, size int64) string {
-	// Hot cache for small frequently-used files (< 50MB)
-	if size < 50*1024*1024 {
+	// Hot cache for small frequently-used files
+	if size < SmallFileSize {
 		return "hot"
 	}
 
-	// Warm cache for medium files (50MB - 200MB)
-	if size < 200*1024*1024 {
+	// Warm cache for medium files
+	if size < MediumFileSize {
 		return "warm"
 	}
 
-	// Cold cache for large files (> 200MB)
+	// Cold cache for large files
 	return "cold"
 }
 
@@ -461,9 +470,9 @@ func (s *StagingArea) generateFileHash(path string) (string, error) {
 			path, stat.Size(), stat.ModTime().Unix())))
 
 		// Adaptive hash strategy based on file size
-		if stat.Size() > 100*1024*1024 { // 100MB+ large files
+		if stat.Size() > LargeFileSize { // 100MB+ large files
 			// First 64KB + last 64KB + middle sample
-			buffer := make([]byte, 64*1024)
+			buffer := make([]byte, HashSampleSize)
 
 			// File start
 			n, _ := file.Read(buffer)
@@ -478,7 +487,7 @@ func (s *StagingArea) generateFileHash(path string) (string, error) {
 
 			// File end
 			if stat.Size() > 128*1024 {
-				file.Seek(-64*1024, io.SeekEnd)
+				file.Seek(-HashSampleSize, io.SeekEnd)
 				n, _ = file.Read(buffer)
 				hasher.Write(buffer[:n])
 			}
@@ -544,7 +553,7 @@ func (s *StagingArea) AddPattern(pattern string) (*AddResult, error) {
 	}
 
 	for _, match := range matches {
-		if isDesignFile(match) {
+		if scanner.IsDesignFile(match) { // 통합된 함수 사용
 			if err := s.AddFile(match); err != nil {
 				result.FailedFiles[match] = err
 			} else {
@@ -583,7 +592,7 @@ func (s *StagingArea) addAllDesignFiles(dir string) (*AddResult, error) {
 			return nil
 		}
 
-		if !info.IsDir() && isDesignFile(path) {
+		if !info.IsDir() && scanner.IsDesignFile(path) { // 통합된 함수 사용
 			if err := s.AddFile(path); err != nil {
 				result.FailedFiles[path] = err
 			} else {
@@ -674,21 +683,4 @@ func (s *StagingArea) HasFile(path string) bool {
 	}
 	_, exists := s.files[absPath]
 	return exists
-}
-
-// isDesignFile checks if a file is a supported design file
-func isDesignFile(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	supportedExts := []string{
-		".ai", ".psd", ".sketch", ".fig", ".xd",
-		".afdesign", ".afphoto", ".blend", ".c4d",
-		".max", ".mb", ".ma", ".fbx", ".obj",
-	}
-
-	for _, supportedExt := range supportedExts {
-		if ext == supportedExt {
-			return true
-		}
-	}
-	return false
 }
