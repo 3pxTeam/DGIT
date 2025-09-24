@@ -19,34 +19,34 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-// RestoreManager handles ultra-fast file restoration with 3-tier cache optimization
-// Achieves dramatic speed improvements through intelligent cache utilization
+// RestoreManager handles file restoration with 3-tier cache optimization
+// Provides cache optimization for improved performance
 type RestoreManager struct {
 	DgitDir    string
 	ObjectsDir string
 	DeltaDir   string
-	// Ultra-Fast 3-Tier Cache System for rapid restoration
-	HotCacheDir  string // LZ4 cache for 0.2s access - fastest restoration
-	WarmCacheDir string // Zstd cache for 0.5s access - balanced performance
-	ColdCacheDir string // Archive cache for 2s access - long-term storage
+	// 3-Tier Cache System for file restoration
+	HotCacheDir  string // LZ4 cache for fast restoration
+	WarmCacheDir string // Zstd cache for balanced performance
+	ColdCacheDir string // Archive cache for long-term storage
 }
 
-// NewRestoreManager creates a new ultra-fast restore manager with cache awareness
-// Initializes with complete 3-tier cache system for optimal restoration performance
+// NewRestoreManager creates a new restore manager with cache awareness
+// Initializes with 3-tier cache system for optimal restoration performance
 func NewRestoreManager(dgitDir string) *RestoreManager {
 	objectsDir := filepath.Join(dgitDir, "objects")
 	return &RestoreManager{
 		DgitDir:      dgitDir,
 		ObjectsDir:   objectsDir,
 		DeltaDir:     filepath.Join(objectsDir, "deltas"),
-		HotCacheDir:  filepath.Join(dgitDir, "cache", "hot"),  // 0.2s ultra-fast access
-		WarmCacheDir: filepath.Join(dgitDir, "cache", "warm"), // 0.5s balanced access
-		ColdCacheDir: filepath.Join(dgitDir, "cache", "cold"), // 2s archive access
+		HotCacheDir:  filepath.Join(dgitDir, "cache", "hot"),  // fast fast access
+		WarmCacheDir: filepath.Join(dgitDir, "cache", "warm"), // balanced balanced access
+		ColdCacheDir: filepath.Join(dgitDir, "cache", "cold"), // slower archive access
 	}
 }
 
-// RestoreResult contains comprehensive restoration operation information
-// Enhanced with ultra-fast performance metrics and cache utilization data
+// RestoreResult contains restoration operation information
+// Enhanced with performance metrics and cache utilization data
 type RestoreResult struct {
 	RestoredFiles    []string
 	SkippedFiles     []string
@@ -56,13 +56,13 @@ type RestoreResult struct {
 	TotalFilesCount  int
 	SourceVersion    int
 	SourceCommitHash string
-	// Ultra-Fast Performance Metrics for continuous optimization
+	// Performance Metrics for continuous optimization
 	CacheHitLevel    string  // "hot", "warm", "cold", "miss" - cache performance tracking
 	SpeedImprovement float64 // Multiplier vs traditional restoration methods
 	DataTransferred  int64   // Bytes actually read from storage for efficiency analysis
 }
 
-// RestoreFilesFromCommit restores files using ultra-fast cache-optimized strategies
+// RestoreFilesFromCommit restores files using fast cache-optimized strategies
 // Intelligently selects fastest available restoration method based on cache availability
 func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, filesToRestore []string, targetCommit interface{}) error {
 	startTime := time.Now()
@@ -73,7 +73,7 @@ func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, fil
 		return err
 	}
 
-	fmt.Printf("Analyzing ultra-fast restoration strategy for v%d...\n", version)
+	fmt.Printf("Analyzing restoration strategy for v%d...\n", version)
 
 	// Load comprehensive commit data using log manager
 	logManager := log.NewLogManager(rm.DgitDir)
@@ -82,8 +82,8 @@ func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, fil
 		return fmt.Errorf("failed to load commit data: %w", err)
 	}
 
-	// Choose optimal ultra-fast restoration method based on cache availability
-	result, err := rm.performUltraFastRestore(commit, filesToRestore, version)
+	// Choose optimal fast restoration method based on cache availability
+	result, err := rm.performFastRestore(commit, filesToRestore, version)
 	if err != nil {
 		return err
 	}
@@ -92,15 +92,15 @@ func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, fil
 	result.RestorationTime = time.Since(startTime)
 	result.SpeedImprovement = rm.calculateSpeedImprovement(result.RestoreMethod, result.RestorationTime)
 
-	// Display detailed ultra-fast restoration results
-	rm.displayUltraFastRestoreResults(result, commitHashOrVersion, version)
+	// Display detailed fast restoration results
+	rm.displayRestoreResults(result, commitHashOrVersion, version)
 
 	return nil
 }
 
-// performUltraFastRestore intelligently chooses the fastest available restoration method
+// performFastRestore intelligently chooses the fastest available restoration method
 // Priority: Hot Cache → Warm Cache → Smart Delta → Cold Cache → Legacy
-func (rm *RestoreManager) performUltraFastRestore(commit *log.Commit, filesToRestore []string, version int) (*RestoreResult, error) {
+func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore []string, version int) (*RestoreResult, error) {
 	result := &RestoreResult{
 		SourceVersion:    commit.Version,
 		SourceCommitHash: commit.Hash,
@@ -109,12 +109,12 @@ func (rm *RestoreManager) performUltraFastRestore(commit *log.Commit, filesToRes
 		ErrorFiles:       make(map[string]error),
 	}
 
-	// Priority 1: Hot Cache (LZ4) - 0.2s ultra-fast access!
+	// Priority 1: Hot Cache (LZ4) - fast access!
 	if hotCacheResult := rm.tryHotCacheRestore(commit, filesToRestore, result); hotCacheResult != nil {
 		return hotCacheResult, nil
 	}
 
-	// Priority 2: Warm Cache (Zstd) - 0.5s balanced access
+	// Priority 2: Warm Cache (Zstd) - balanced balanced access
 	if warmCacheResult := rm.tryWarmCacheRestore(commit, filesToRestore, result); warmCacheResult != nil {
 		return warmCacheResult, nil
 	}
@@ -161,8 +161,8 @@ func (rm *RestoreManager) performUltraFastRestore(commit *log.Commit, filesToRes
 	return result, fmt.Errorf("no restoration method available for version %d", version)
 }
 
-// tryHotCacheRestore attempts ultra-fast restoration from LZ4 hot cache (0.2s!)
-// Provides the fastest possible restoration when files are in hot cache
+// tryHotCacheRestore attempts fast restoration from LZ4 hot cache (fast!)
+// Provides the fast restoration when files are in hot cache
 func (rm *RestoreManager) tryHotCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
 	if commit.CompressionInfo == nil || commit.CompressionInfo.Strategy != "lz4" {
 		return nil
@@ -173,7 +173,7 @@ func (rm *RestoreManager) tryHotCacheRestore(commit *log.Commit, filesToRestore 
 		return nil
 	}
 
-	fmt.Println("Using hot cache (LZ4) - 0.2s access!")
+	fmt.Println("Using hot cache (LZ4) - fast access!")
 	result.RestoreMethod = "hot_cache"
 	result.CacheHitLevel = "hot"
 
@@ -185,7 +185,7 @@ func (rm *RestoreManager) tryHotCacheRestore(commit *log.Commit, filesToRestore 
 	return result
 }
 
-// tryWarmCacheRestore attempts restoration from Zstd warm cache (0.5s)
+// tryWarmCacheRestore attempts restoration from Zstd warm cache (balanced)
 // Provides good balance of speed and compression when hot cache misses
 func (rm *RestoreManager) tryWarmCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
 	// Check for warm cache version with better compression ratios
@@ -194,7 +194,7 @@ func (rm *RestoreManager) tryWarmCacheRestore(commit *log.Commit, filesToRestore
 		return nil
 	}
 
-	fmt.Println("Using warm cache (Zstd) - 0.5s access!")
+	fmt.Println("Using warm cache (Zstd) - balanced access!")
 	result.RestoreMethod = "warm_cache"
 	result.CacheHitLevel = "warm"
 
@@ -227,7 +227,7 @@ func (rm *RestoreManager) tryColdCacheRestore(commit *log.Commit, filesToRestore
 	return result
 }
 
-// extractFromLZ4Cache extracts files from LZ4 hot cache with 0.2s performance
+// extractFromLZ4Cache extracts files from LZ4 hot cache with fast performance
 // Optimized for maximum speed with streamlined decompression
 func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []string, result *RestoreResult) error {
 	// Extract version number from LZ4 filename (e.g., v1.lz4 → 1)
@@ -245,7 +245,7 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 		return fmt.Errorf("failed to load commit v%d: %w", version, err)
 	}
 
-	// Open LZ4 file for ultra-fast decompression
+	// Open LZ4 file for fast decompression
 	file, err := os.Open(lz4Path)
 	if err != nil {
 		return fmt.Errorf("failed to open LZ4 cache: %w", err)
@@ -971,13 +971,13 @@ func (rm *RestoreManager) calculateSpeedImprovement(method string, duration time
 
 	switch method {
 	case "hot_cache":
-		// Expected: 0.2s, calculate actual improvement ratio
+		// Expected: fast, calculate actual improvement ratio
 		return baselineMs / actualMs
 	case "warm_cache":
-		// Expected: 0.5s, calculate actual improvement ratio
+		// Expected: balanced, calculate actual improvement ratio
 		return baselineMs / actualMs
 	case "cold_cache":
-		// Expected: 2s, still much faster than baseline
+		// Expected: slower, still much faster than baseline
 		return baselineMs / actualMs
 	case "smart_delta":
 		// Variable performance based on delta size and complexity
@@ -988,11 +988,11 @@ func (rm *RestoreManager) calculateSpeedImprovement(method string, duration time
 	}
 }
 
-// displayUltraFastRestoreResults shows comprehensive ultra-fast restoration results
+// displayRestoreResults shows comprehensive fast restoration results
 // Provides detailed feedback on performance and cache utilization
-func (rm *RestoreManager) displayUltraFastRestoreResults(result *RestoreResult, commitRef string, version int) {
+func (rm *RestoreManager) displayRestoreResults(result *RestoreResult, commitRef string, version int) {
 	if len(result.RestoredFiles) > 0 {
-		fmt.Printf("\nUltra-fast restoration completed in %.3f seconds\n",
+		fmt.Printf("\nFast restoration completed in %.3f seconds\n",
 			result.RestorationTime.Seconds())
 
 		// Show method-specific information with performance metrics
@@ -1035,7 +1035,7 @@ func (rm *RestoreManager) displayUltraFastRestoreResults(result *RestoreResult, 
 		fmt.Println("No files found matching the specified criteria.")
 	}
 
-	fmt.Printf("\nUltra-fast restoration from commit %s (v%d) completed!\n", commitRef, version)
+	fmt.Printf("\nFast restoration from commit %s (v%d) completed!\n", commitRef, version)
 	fmt.Printf("Cache performance: %s cache hit\n", result.CacheHitLevel)
 }
 
@@ -1136,7 +1136,7 @@ func (rm *RestoreManager) copyFile(src, dst string) error {
 
 // ============================================================================
 // EXISTING FUNCTIONS (PRESERVED FOR COMPATIBILITY)
-// These functions maintain backward compatibility while leveraging ultra-fast improvements
+// These functions maintain backward compatibility while leveraging fast improvements
 // ============================================================================
 
 // restoreFromZip restores from ZIP file with enhanced error handling
