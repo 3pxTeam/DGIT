@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"dgit/cmd"
-	
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,16 +25,15 @@ Figma, and other design file formats with metadata-aware versioning.
 }
 
 func init() {
-	// Add all commands from cmd package
 	rootCmd.AddCommand(cmd.InitCmd)
-	rootCmd.AddCommand(cmd.ScanCmd)
 	rootCmd.AddCommand(cmd.AddCmd)
 	rootCmd.AddCommand(cmd.CommitCmd)
 	rootCmd.AddCommand(cmd.StatusCmd)
 	rootCmd.AddCommand(cmd.LogCmd)
 	rootCmd.AddCommand(cmd.RestoreCmd)
+	rootCmd.AddCommand(cmd.ScanCmd)
+	rootCmd.AddCommand(cmd.ShowCmd) // 새로 추가
 }
-
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("❌ Error: %v\n", err)
