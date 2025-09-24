@@ -18,19 +18,16 @@ import (
 	"dgit/internal/scanner"
 	"dgit/internal/staging"
 
-	// Ultra-Fast Compression Libraries
+	// Compression Libraries
 	"github.com/klauspost/compress/zstd"
-	"github.com/pierrec/lz4/v4"
-
-	// Legacy support
 	"github.com/kr/binarydist"
+	"github.com/pierrec/lz4/v4"
 )
 
 // photoshop 패키지의 DetailedLayer 타입
 type DetailedLayer = photoshop.DetailedLayer
 
 // CompressionResult contains comprehensive compression operation metrics
-// Enhanced for ultra-fast performance tracking and cache optimization
 type CompressionResult struct {
 	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
 	OutputFile       string    `json:"output_file"`
@@ -40,14 +37,13 @@ type CompressionResult struct {
 	BaseVersion      int       `json:"base_version,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 
-	// Ultra-Fast Performance Metrics - KEY to 225x speed improvement
-	CompressionTime  float64 `json:"compression_time_ms"` // Milliseconds - critical metric
-	CacheLevel       string  `json:"cache_level"`         // "hot", "warm", "cold"
-	SpeedImprovement float64 `json:"speed_improvement"`   // Multiplier vs traditional methods
+	// Performance Metrics
+	CompressionTime  float64 `json:"compression_time_ms"`
+	CacheLevel       string  `json:"cache_level"`
+	SpeedImprovement float64 `json:"speed_improvement"`
 }
 
-// Commit represents a single commit in DGit with ultra-fast compression integration
-// Enhanced with 3-tier cache system and smart compression strategy selection
+// Commit represents a single commit in DGit
 type Commit struct {
 	Hash            string                 `json:"hash"`
 	Message         string                 `json:"message"`
@@ -57,12 +53,11 @@ type Commit struct {
 	Version         int                    `json:"version"`
 	Metadata        map[string]interface{} `json:"metadata"`
 	ParentHash      string                 `json:"parent_hash,omitempty"`
-	SnapshotZip     string                 `json:"snapshot_zip,omitempty"`     // Legacy compatibility
-	CompressionInfo *CompressionResult     `json:"compression_info,omitempty"` // Ultra-fast compression data
+	SnapshotZip     string                 `json:"snapshot_zip,omitempty"`
+	CompressionInfo *CompressionResult     `json:"compression_info,omitempty"`
 }
 
-// CommitManager handles ultra-fast commit creation with 3-tier cache system
-// Achieves 225x speed improvement through intelligent compression strategy selection
+// CommitManager handles commit creation with 3-tier cache system
 type CommitManager struct {
 	DgitDir    string
 	ObjectsDir string
@@ -70,8 +65,8 @@ type CommitManager struct {
 	ConfigFile string
 	DeltaDir   string
 
-	// Ultra-Fast 3-Tier Cache System for 0.2s commits
-	HotCacheDir  string // LZ4 hot cache for immediate 0.2s access
+	// 3-Tier Cache System
+	HotCacheDir  string // LZ4 hot cache for immediate access
 	WarmCacheDir string // Zstd warm cache for background optimization
 	ColdCacheDir string // Archive cold cache for long-term storage
 
@@ -79,23 +74,22 @@ type CommitManager struct {
 	MaxDeltaChainLength  int
 	CompressionThreshold float64
 
-	// Ultra-Fast compression configuration
-	lz4CompressionLevel int  // LZ4 level (1 = fastest, 9 = best compression)
-	enableBackgroundOpt bool // Enable background optimization to warm/cold cache
+	// Compression configuration
+	lz4CompressionLevel int
+	enableBackgroundOpt bool
 }
 
-// NewCommitManager creates a new ultra-fast commit manager with optimized 3-tier cache
-// Automatically sets up hot/warm/cold cache directories for maximum performance
+// NewCommitManager creates a new commit manager with 3-tier cache
 func NewCommitManager(dgitDir string) *CommitManager {
 	objectsDir := filepath.Join(dgitDir, "objects")
 	deltaDir := filepath.Join(objectsDir, "deltas")
 
-	// Ultra-Fast 3-Stage Cache System - key to performance breakthrough
-	hotCacheDir := filepath.Join(dgitDir, "cache", "hot")   // 0.2s access with LZ4
-	warmCacheDir := filepath.Join(dgitDir, "cache", "warm") // 0.5s access with Zstd
-	coldCacheDir := filepath.Join(dgitDir, "cache", "cold") // 2s access with max compression
+	// 3-Stage Cache System
+	hotCacheDir := filepath.Join(dgitDir, "cache", "hot")
+	warmCacheDir := filepath.Join(dgitDir, "cache", "warm")
+	coldCacheDir := filepath.Join(dgitDir, "cache", "cold")
 
-	// Ensure all cache directories exist for optimal performance
+	// Ensure all cache directories exist
 	os.MkdirAll(objectsDir, 0755)
 	os.MkdirAll(deltaDir, 0755)
 	os.MkdirAll(hotCacheDir, 0755)
@@ -111,20 +105,17 @@ func NewCommitManager(dgitDir string) *CommitManager {
 		HotCacheDir:          hotCacheDir,
 		WarmCacheDir:         warmCacheDir,
 		ColdCacheDir:         coldCacheDir,
-		MaxDeltaChainLength:  5,    // Prevent delta chains from getting too long
-		CompressionThreshold: 0.3,  // 30% compression ratio threshold
-		lz4CompressionLevel:  1,    // Fastest LZ4 level for 0.2s commits
-		enableBackgroundOpt:  true, // Enable background optimization for better ratios
+		MaxDeltaChainLength:  5,
+		CompressionThreshold: 0.3,
+		lz4CompressionLevel:  1,
+		enableBackgroundOpt:  true,
 	}
 
-	// Load any custom configuration overrides
-	cm.loadUltraFastConfig()
-
+	cm.loadConfig()
 	return cm
 }
 
-// CreateCommit - ULTRA-FAST VERSION achieving 225x speed improvement over traditional methods
-// Uses intelligent compression strategy selection and 3-tier cache system
+// CreateCommit creates a new commit with staged files
 func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.StagedFile) (*Commit, error) {
 	startTime := time.Now()
 
@@ -159,15 +150,15 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 	}
 	commit.Metadata = meta
 
-	// ULTRA-FAST COMPRESSION ENGINE - core of 225x speed improvement
-	compressionResult, err := cm.createUltraFastSnapshot(stagedFiles, newVersion, currentVersion, startTime)
+	// Create snapshot with compression
+	compressionResult, err := cm.createSnapshot(stagedFiles, newVersion, currentVersion, startTime)
 	if err != nil {
-		return nil, fmt.Errorf("ultra-fast snapshot failed: %w", err)
+		return nil, fmt.Errorf("snapshot creation failed: %w", err)
 	}
 
 	commit.CompressionInfo = compressionResult
 	if compressionResult.Strategy == "zip" {
-		commit.SnapshotZip = compressionResult.OutputFile // Legacy compatibility
+		commit.SnapshotZip = compressionResult.OutputFile
 	}
 
 	// Save commit metadata and update repository state
@@ -180,10 +171,10 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 
 	// Calculate final performance metrics
 	totalTime := time.Since(startTime)
-	compressionResult.SpeedImprovement = 45000.0 / compressionResult.CompressionTime // vs 45 second baseline
+	compressionResult.SpeedImprovement = 45000.0 / compressionResult.CompressionTime
 
-	// Display ultra-fast performance results
-	cm.displayUltraFastCompressionStats(compressionResult, totalTime)
+	// Display compression results
+	cm.displayCompressionStats(compressionResult, totalTime)
 
 	// Schedule background optimization for better compression ratios (non-blocking)
 	if cm.enableBackgroundOpt && compressionResult.Strategy == "lz4" {
@@ -193,19 +184,16 @@ func (cm *CommitManager) CreateCommit(message string, stagedFiles []*staging.Sta
 	return commit, nil
 }
 
-// createUltraFastSnapshot - The heart of our 225x speed improvement!
-// Intelligent strategy selection: LZ4 -> Smart Delta -> Fallback
-func (cm *CommitManager) createUltraFastSnapshot(files []*staging.StagedFile, version, prevVersion int, startTime time.Time) (*CompressionResult, error) {
-	// DECISION ENGINE: Choose optimal ultra-fast strategy based on file characteristics
-
-	// Strategy 1: LZ4 Ultra-Fast (for appropriate files only)
-	if cm.shouldUseLZ4UltraFast(files, version) {
-		return cm.createLZ4UltraFast(files, version, startTime)
+// createSnapshot chooses optimal compression strategy based on file characteristics
+func (cm *CommitManager) createSnapshot(files []*staging.StagedFile, version, prevVersion int, startTime time.Time) (*CompressionResult, error) {
+	// Strategy 1: LZ4 compression for appropriate files
+	if cm.shouldUseLZ4(files, version) {
+		return cm.compressWithLZ4(files, version, startTime)
 	}
 
-	// Strategy 2: Smart Delta for compatible files (if previous version exists)
+	// Strategy 2: Smart Delta for compatible files
 	if version > 1 && !cm.shouldCreateNewSnapshot(prevVersion) {
-		deltaResult, err := cm.tryUltraFastDelta(files, version, prevVersion, startTime)
+		deltaResult, err := cm.createDelta(files, version, prevVersion, startTime)
 		if err == nil && deltaResult.CompressionRatio <= cm.CompressionThreshold {
 			return deltaResult, nil
 		}
@@ -215,21 +203,20 @@ func (cm *CommitManager) createUltraFastSnapshot(files []*staging.StagedFile, ve
 		}
 	}
 
-	// Strategy 3: LZ4 Fallback (always fast)
-	return cm.createLZ4UltraFast(files, version, startTime)
+	// Strategy 3: LZ4 Fallback
+	return cm.compressWithLZ4(files, version, startTime)
 }
 
-// shouldUseLZ4UltraFast - ENHANCED with better decision logic
-// Determines when to use ultra-fast LZ4 compression vs smart delta compression
-func (cm *CommitManager) shouldUseLZ4UltraFast(files []*staging.StagedFile, version int) bool {
-	// First commit always uses LZ4 (no previous version to compare)
+// shouldUseLZ4 determines when to use LZ4 compression vs smart delta compression
+func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) bool {
+	// First commit always uses LZ4
 	if version == 1 {
 		return true
 	}
 
 	// Analyze file characteristics to determine delta compression suitability
 	for _, file := range files {
-		// Large files benefit more from delta compression (50MB threshold)
+		// Large files benefit more from delta compression
 		if file.Size > 50*1024*1024 {
 			fmt.Printf("Large file detected (%s, %.1f MB) - using delta compression\n",
 				filepath.Base(file.Path), float64(file.Size)/(1024*1024))
@@ -249,25 +236,23 @@ func (cm *CommitManager) shouldUseLZ4UltraFast(files []*staging.StagedFile, vers
 	return true
 }
 
-// tryUltraFastDelta - Smart delta compression optimized for speed
-// Chooses the fastest delta algorithm based on file types
-func (cm *CommitManager) tryUltraFastDelta(files []*staging.StagedFile, version, baseVersion int, startTime time.Time) (*CompressionResult, error) {
-	// Select fastest delta algorithm based on file characteristics
-	algorithm := cm.selectFastestDeltaAlgorithm(files)
+// createDelta creates smart delta compression for design files
+func (cm *CommitManager) createDelta(files []*staging.StagedFile, version, baseVersion int, startTime time.Time) (*CompressionResult, error) {
+	// Select optimal delta algorithm based on file types
+	algorithm := cm.selectDeltaAlgorithm(files)
 
 	switch algorithm {
 	case "psd_smart":
 		return cm.createPSDSmartDelta(files, version, baseVersion)
-	case "bsdiff_fast":
-		return cm.createBsdiffDeltaFast(files, version, baseVersion)
+	case "bsdiff":
+		return cm.createBsdiffDelta(files, version, baseVersion)
 	default:
 		return nil, fmt.Errorf("no suitable delta algorithm")
 	}
 }
 
-// selectFastestDeltaAlgorithm chooses optimal delta compression method
-// Prioritizes speed while maintaining good compression ratios
-func (cm *CommitManager) selectFastestDeltaAlgorithm(files []*staging.StagedFile) string {
+// selectDeltaAlgorithm chooses optimal delta compression method
+func (cm *CommitManager) selectDeltaAlgorithm(files []*staging.StagedFile) string {
 	// Check for PSD files (use intelligent PSD-specific delta)
 	for _, f := range files {
 		if strings.ToLower(filepath.Ext(f.Path)) == ".psd" {
@@ -276,41 +261,39 @@ func (cm *CommitManager) selectFastestDeltaAlgorithm(files []*staging.StagedFile
 	}
 
 	// For other design files, use optimized bsdiff
-	return "bsdiff_fast"
+	return "bsdiff"
 }
 
-// createLZ4UltraFast - FIXED VERSION with improved compression validation
-// Uses streaming LZ4 compression with structured headers for proper extraction
-func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version int, startTime time.Time) (*CompressionResult, error) {
+// compressWithLZ4 creates LZ4 compressed files with structured headers
+func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version int, startTime time.Time) (*CompressionResult, error) {
 	compressionStartTime := time.Now()
 
-	// Store in hot cache for immediate 0.2s access
+	// Store in hot cache for immediate access
 	hotCachePath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
 
-	// Create LZ4 compressed file with optimal settings
+	// Create LZ4 compressed file
 	outFile, err := os.Create(hotCachePath)
 	if err != nil {
 		return nil, fmt.Errorf("create LZ4 file: %w", err)
 	}
 	defer outFile.Close()
 
-	// Ultra-fast LZ4 compression (level 1 for maximum speed)
+	// LZ4 compression with level 1 for maximum speed
 	lz4Writer := lz4.NewWriter(outFile)
 	defer lz4Writer.Close()
 
 	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
 
-	// Stream all files through LZ4 with structured headers for proper extraction
+	// Stream all files through LZ4 with structured headers
 	var originalSize int64
 	for _, file := range files {
-		// Read file content first to get accurate size
+		// Read file content
 		srcFile, err := os.Open(file.AbsolutePath)
 		if err != nil {
 			fmt.Printf("Warning: failed to open %s: %v\n", file.Path, err)
 			continue
 		}
 
-		// Get actual file content
 		fileContent, err := io.ReadAll(srcFile)
 		srcFile.Close()
 		if err != nil {
@@ -349,13 +332,12 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 	compressedSize := fileInfo.Size()
 	compressionTime := float64(time.Since(compressionStartTime).Nanoseconds()) / 1000000.0
 
-	// 수정: 개선된 압축 검증 로직
+	// 수정된 압축 검증 로직: 파일이 원본의 120%를 초과할 경우에만 오류
 	if originalSize == 0 {
 		os.Remove(hotCachePath)
 		return nil, fmt.Errorf("no data to compress")
 	}
 
-	// 압축률 기반 검증 (압축되지 않고 20% 이상 커진 경우만 오류)
 	compressionRatio := float64(compressedSize) / float64(originalSize)
 	if compressionRatio > 1.2 {
 		os.Remove(hotCachePath)
@@ -363,18 +345,16 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 			(compressionRatio-1)*100, originalSize, compressedSize)
 	}
 
-	// 최소 크기 검증을 더 관대하게 조정 (빈 파일이 아닌지만 확인)
 	if compressedSize == 0 {
 		os.Remove(hotCachePath)
 		return nil, fmt.Errorf("compression failed: output file is empty")
 	}
 
-	// 수정: 안전한 압축 비율 계산
 	var ratio float64
 	if originalSize > 0 {
 		ratio = float64(compressedSize) / float64(originalSize)
 	} else {
-		ratio = 1.0 // 원본이 0 바이트인 경우 비율을 1로 설정
+		ratio = 1.0
 	}
 
 	return &CompressionResult{
@@ -389,12 +369,11 @@ func (cm *CommitManager) createLZ4UltraFast(files []*staging.StagedFile, version
 	}, nil
 }
 
-// createBsdiffDeltaFast - Speed-optimized bsdiff delta compression
-// Uses fast binary diff algorithm for rapid delta generation
-func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
+// createBsdiffDelta creates binary diff delta compression
+func (cm *CommitManager) createBsdiffDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	compressionStart := time.Now()
 
-	// Create temporary current version file in hot cache for speed
+	// Create temporary current version file in hot cache
 	tempCurrent := filepath.Join(cm.HotCacheDir, fmt.Sprintf("temp_v%d.lz4", version))
 	defer os.Remove(tempCurrent)
 
@@ -408,10 +387,10 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 		return nil, fmt.Errorf("base v%d not found", baseVersion)
 	}
 
-	// Create delta file in hot cache for fast access
+	// Create delta file in hot cache
 	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
 
-	// Open files for delta compression with proper error handling
+	// Open files for delta compression
 	baseFile, err := cm.openCachedFile(basePath)
 	if err != nil {
 		return nil, err
@@ -430,7 +409,7 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 	}
 	defer deltaFile.Close()
 
-	// Fast bsdiff operation for rapid delta creation
+	// Create bsdiff delta
 	if err := binarydist.Diff(baseFile, currentFile, deltaFile); err != nil {
 		return nil, fmt.Errorf("bsdiff delta failed: %w", err)
 	}
@@ -440,10 +419,8 @@ func (cm *CommitManager) createBsdiffDeltaFast(files []*staging.StagedFile, vers
 }
 
 // Background optimization system for improved compression ratios
-// Runs asynchronously to avoid blocking user operations
 
 // scheduleBackgroundOptimization queues background optimization tasks
-// Waits for user operations to complete before starting optimization
 func (cm *CommitManager) scheduleBackgroundOptimization(version int, result *CompressionResult) {
 	// Wait briefly to ensure user operations complete
 	time.Sleep(3 * time.Second)
@@ -453,7 +430,6 @@ func (cm *CommitManager) scheduleBackgroundOptimization(version int, result *Com
 }
 
 // optimizeToWarmCache converts LZ4 hot cache to Zstd warm cache
-// Provides better compression ratios while maintaining reasonable access speed
 func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionResult) {
 	if result.Strategy != "lz4" {
 		return
@@ -476,7 +452,7 @@ func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionRes
 	}
 	defer warmFile.Close()
 
-	// LZ4 decompression → Zstd compression pipeline for optimal ratios
+	// LZ4 decompression → Zstd compression pipeline
 	lz4Reader := lz4.NewReader(hotFile)
 	zstdWriter, err := zstd.NewWriter(warmFile, zstd.WithEncoderLevel(zstd.SpeedDefault))
 	if err != nil {
@@ -487,13 +463,9 @@ func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionRes
 	// Stream conversion for efficient memory usage
 	io.Copy(zstdWriter, lz4Reader)
 	zstdWriter.Close()
-
-	// Background optimization completed successfully
-	// Keep hot cache for immediate access, warm cache for better compression ratio
 }
 
-// createPSDSmartDelta - Enhanced PSD delta compression with layer-level change detection
-// Compares layers between versions and creates intelligent delta with change tracking
+// createPSDSmartDelta creates PSD delta compression with layer-level change detection
 func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	compressionStart := time.Now()
 
@@ -558,7 +530,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 type LayerChange struct {
 	LayerID         int                    `json:"layer_id"`
 	LayerName       string                 `json:"layer_name"`
-	ChangeType      string                 `json:"change_type"` // "modified", "added", "deleted", "moved"
+	ChangeType      string                 `json:"change_type"`
 	OldHash         string                 `json:"old_hash,omitempty"`
 	NewHash         string                 `json:"new_hash,omitempty"`
 	PropertyChanges map[string]interface{} `json:"property_changes,omitempty"`
@@ -584,7 +556,6 @@ func (cm *CommitManager) extractPSDLayerInfo(psdPath string) ([]DetailedLayer, e
 }
 
 // extractPreviousVersionLayers extracts layer info from previous version
-// Reconstructs the previous PSD file from cache and extracts its layer information
 func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath string) ([]DetailedLayer, error) {
 	// Find the previous version file in cache hierarchy
 	basePath := cm.findVersionInCache(baseVersion)
@@ -599,7 +570,7 @@ func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath 
 	os.MkdirAll(tempDir, 0755)
 
 	tempPSDPath := filepath.Join(tempDir, fmt.Sprintf("temp_v%d.psd", baseVersion))
-	defer os.Remove(tempPSDPath) // Clean up when done
+	defer os.Remove(tempPSDPath)
 
 	// Extract/decompress the cached file to get the original PSD
 	err := cm.extractCachedFileToPSD(basePath, tempPSDPath, filePath)
@@ -617,8 +588,324 @@ func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath 
 	return previousLayers, nil
 }
 
+// Performance display and logging functions
+
+// displayCompressionStats shows comprehensive performance metrics
+func (cm *CommitManager) displayCompressionStats(result *CompressionResult, totalTime time.Duration) {
+	compressionPercent := (1 - result.CompressionRatio) * 100
+	totalTimeMs := float64(totalTime.Nanoseconds()) / 1000000.0
+
+	// Display compression results based on strategy
+	switch result.Strategy {
+	case "lz4":
+		fmt.Printf("LZ4 compression: %.1f%% compressed in %.1fms\n", compressionPercent, result.CompressionTime)
+		fmt.Printf("Speed improvement: %.1fx faster than traditional ZIP\n", result.SpeedImprovement)
+		fmt.Printf("Cache: %s | File: %s\n", result.CacheLevel, result.OutputFile)
+	case "psd_smart":
+		fmt.Printf("PSD Smart Delta: %.1f%% space saved in %.1fms\n", compressionPercent, result.CompressionTime)
+		fmt.Printf("Base: v%d | Changes detected and optimized\n", result.BaseVersion)
+	case "bsdiff":
+		fmt.Printf("Binary Delta: %.1f%% saved in %.1fms\n", compressionPercent, result.CompressionTime)
+		fmt.Printf("Base: v%d | Delta file: %s\n", result.BaseVersion, result.OutputFile)
+	default:
+		fmt.Printf("%s compression: %.1f%% in %.1fms\n", strings.ToUpper(result.Strategy), compressionPercent, result.CompressionTime)
+	}
+
+	// Overall performance summary
+	if totalTimeMs < 500 {
+		fmt.Printf("Fast commit completed in %.0fms\n", totalTimeMs)
+	} else {
+		fmt.Printf("Commit completed in %.0fms\n", totalTimeMs)
+	}
+
+	// Background optimization notice
+	if cm.enableBackgroundOpt && result.Strategy == "lz4" {
+		fmt.Printf("Background optimization scheduled for better compression\n")
+	}
+}
+
+// Utility and helper functions
+
+// loadConfig loads compression configuration from repository
+func (cm *CommitManager) loadConfig() {
+	if data, err := os.ReadFile(cm.ConfigFile); err == nil {
+		var config map[string]interface{}
+		if json.Unmarshal(data, &config) == nil {
+			if compression, ok := config["compression"].(map[string]interface{}); ok {
+				if lz4Config, ok := compression["lz4_stage"].(map[string]interface{}); ok {
+					if level, ok := lz4Config["compression_level"].(float64); ok {
+						cm.lz4CompressionLevel = int(level)
+					}
+				}
+			}
+		}
+	}
+}
+
+// findVersionInCache searches for version file across 3-tier cache hierarchy
+func (cm *CommitManager) findVersionInCache(version int) string {
+	// Check hot cache first
+	hotPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
+	if cm.fileExists(hotPath) {
+		return hotPath
+	}
+
+	// Check warm cache
+	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
+	if cm.fileExists(warmPath) {
+		return warmPath
+	}
+
+	// Check legacy objects
+	legacyPath := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.zip", version))
+	if cm.fileExists(legacyPath) {
+		return legacyPath
+	}
+
+	return ""
+}
+
+// openCachedFile opens a cached file with appropriate decompression
+func (cm *CommitManager) openCachedFile(path string) (io.ReadCloser, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return appropriate decompression reader based on file extension
+	if strings.HasSuffix(path, ".lz4") {
+		return &lz4ReadCloser{lz4.NewReader(file), file}, nil
+	} else if strings.HasSuffix(path, ".zstd") {
+		zstdReader, err := zstd.NewReader(file)
+		if err != nil {
+			file.Close()
+			return nil, err
+		}
+		return &zstdReadCloser{zstdReader, file}, nil
+	}
+
+	return file, nil
+}
+
+// Helper reader types for seamless decompression
+
+// lz4ReadCloser provides transparent LZ4 decompression
+type lz4ReadCloser struct {
+	*lz4.Reader
+	file *os.File
+}
+
+func (r *lz4ReadCloser) Close() error {
+	return r.file.Close()
+}
+
+// zstdReadCloser provides transparent Zstd decompression
+type zstdReadCloser struct {
+	*zstd.Decoder
+	file *os.File
+}
+
+func (r *zstdReadCloser) Close() error {
+	r.Decoder.Close()
+	return r.file.Close()
+}
+
+// Cache and file management utilities
+
+// createTempLZ4File creates temporary LZ4 file for delta operations
+func (cm *CommitManager) createTempLZ4File(files []*staging.StagedFile, outputPath string) error {
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	lz4Writer := lz4.NewWriter(outFile)
+	defer lz4Writer.Close()
+	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
+
+	// Use same structured format as compressWithLZ4
+	for _, file := range files {
+		srcFile, err := os.Open(file.AbsolutePath)
+		if err != nil {
+			fmt.Printf("Warning: failed to open %s for temp file: %v\n", file.Path, err)
+			continue
+		}
+
+		fileContent, err := io.ReadAll(srcFile)
+		srcFile.Close()
+		if err != nil {
+			fmt.Printf("Warning: failed to read %s for temp file: %v\n", file.Path, err)
+			continue
+		}
+
+		actualSize := int64(len(fileContent))
+
+		// Write structured header
+		header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
+		lz4Writer.Write([]byte(header))
+
+		// Write file content
+		lz4Writer.Write(fileContent)
+	}
+
+	return nil
+}
+
+// calculateCompressionResult computes comprehensive compression statistics
+func (cm *CommitManager) calculateCompressionResult(strategy, outputFile string, files []*staging.StagedFile, baseVersion int, compressionTimeMs float64) (*CompressionResult, error) {
+	var originalSize int64
+	for _, f := range files {
+		originalSize += f.Size
+	}
+
+	info, err := os.Stat(outputFile)
+	if err != nil {
+		return nil, err
+	}
+
+	compressedSize := info.Size()
+
+	return &CompressionResult{
+		Strategy:         strategy,
+		OutputFile:       filepath.Base(outputFile),
+		OriginalSize:     originalSize,
+		CompressedSize:   compressedSize,
+		CompressionRatio: float64(compressedSize) / float64(originalSize),
+		CompressionTime:  compressionTimeMs,
+		CacheLevel:       "hot",
+		BaseVersion:      baseVersion,
+		CreatedAt:        time.Now(),
+	}, nil
+}
+
+// shouldCreateNewSnapshot enforces delta chain length limit for optimal performance
+func (cm *CommitManager) shouldCreateNewSnapshot(ver int) bool {
+	return cm.getDeltaChainLength(ver) >= cm.MaxDeltaChainLength
+}
+
+// getDeltaChainLength counts delta chain length back to last ZIP snapshot
+func (cm *CommitManager) getDeltaChainLength(ver int) int {
+	count := 0
+	for v := ver; v > 0; v-- {
+		if cm.fileExists(filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.zip", v))) {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+// fileExists checks if a file exists on the filesystem
+func (cm *CommitManager) fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// GetCurrentVersion returns the current version by scanning JSON metadata files
+func (cm *CommitManager) GetCurrentVersion() int {
+	entries, err := os.ReadDir(cm.ObjectsDir)
+	if err != nil {
+		return 0
+	}
+	max := 0
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "v") && strings.HasSuffix(e.Name(), ".json") {
+			n, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(e.Name(), "v"), ".json"))
+			if n > max {
+				max = n
+			}
+		}
+	}
+	return max
+}
+
+// generateCommitHash produces a secure 12-character SHA256-based hash
+func (cm *CommitManager) generateCommitHash(msg string, files []*staging.StagedFile, ver int) string {
+	h := sha256.New()
+	h.Write([]byte(msg))
+	h.Write([]byte(strconv.Itoa(ver)))
+	h.Write([]byte(time.Now().Format(time.RFC3339)))
+	for _, f := range files {
+		h.Write([]byte(f.AbsolutePath))
+		h.Write([]byte(strconv.FormatInt(f.Size, 10)))
+		h.Write([]byte(f.ModTime.Format(time.RFC3339)))
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))[:12]
+}
+
+// getAuthor reads author information from repository configuration
+func (cm *CommitManager) getAuthor() string {
+	if data, err := os.ReadFile(cm.ConfigFile); err == nil {
+		var cfg map[string]interface{}
+		if json.Unmarshal(data, &cfg) == nil {
+			if a, ok := cfg["author"].(string); ok {
+				return a
+			}
+		}
+	}
+	return "DGit User"
+}
+
+// getCurrentCommitHash reads the current HEAD commit hash
+func (cm *CommitManager) getCurrentCommitHash() string {
+	if d, err := os.ReadFile(cm.HeadFile); err == nil {
+		return strings.TrimSpace(string(d))
+	}
+	return ""
+}
+
+// scanFilesMetadata extracts comprehensive metadata from design files
+func (cm *CommitManager) scanFilesMetadata(files []*staging.StagedFile) (map[string]interface{}, error) {
+	md := make(map[string]interface{})
+	for _, f := range files {
+		sc := scanner.NewFileScanner()
+		info, err := sc.ScanFile(f.AbsolutePath)
+		if err != nil {
+			// Store basic info even if detailed scanning fails
+			md[f.Path] = map[string]interface{}{
+				"type":          f.FileType,
+				"size":          f.Size,
+				"last_modified": f.ModTime,
+				"scan_error":    err.Error(),
+			}
+			continue
+		}
+		// Store comprehensive design file metadata
+		md[f.Path] = map[string]interface{}{
+			"type":          info.Type,
+			"dimensions":    info.Dimensions,
+			"color_mode":    info.ColorMode,
+			"version":       info.Version,
+			"layers":        info.Layers,
+			"artboards":     info.Artboards,
+			"objects":       info.Objects,
+			"layer_names":   info.LayerNames,
+			"size":          f.Size,
+			"last_modified": f.ModTime,
+		}
+	}
+	return md, nil
+}
+
+// saveCommitMetadata writes commit metadata to JSON file
+func (cm *CommitManager) saveCommitMetadata(c *Commit) error {
+	path := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.json", c.Version))
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal commit: %w", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// updateHead writes the new commit hash to HEAD file
+func (cm *CommitManager) updateHead(hash string) error {
+	return os.WriteFile(cm.HeadFile, []byte(hash), 0644)
+}
+
+// Layer analysis functions for PSD smart delta
+
 // extractCachedFileToPSD extracts a cached file back to original PSD format
-// Handles different cache formats (LZ4, Zstd, ZIP) and reconstructs the PSD
 func (cm *CommitManager) extractCachedFileToPSD(cachedPath, outputPath, originalFilePath string) error {
 	// Determine cache file type by extension
 	switch {
@@ -635,30 +922,24 @@ func (cm *CommitManager) extractCachedFileToPSD(cachedPath, outputPath, original
 
 // extractLZ4ToPSD extracts LZ4 cached file back to PSD format
 func (cm *CommitManager) extractLZ4ToPSD(lz4Path, outputPath, originalFilePath string) error {
-	// Open LZ4 file
 	lz4File, err := os.Open(lz4Path)
 	if err != nil {
 		return fmt.Errorf("failed to open LZ4 file: %w", err)
 	}
 	defer lz4File.Close()
 
-	// Create LZ4 reader
 	lz4Reader := lz4.NewReader(lz4File)
-
-	// For simple LZ4 files (single file compression), directly extract
 	return cm.extractStreamToPSD(lz4Reader, outputPath, originalFilePath)
 }
 
 // extractZstdToPSD extracts Zstd cached file back to PSD format
 func (cm *CommitManager) extractZstdToPSD(zstdPath, outputPath, originalFilePath string) error {
-	// Open Zstd file
 	zstdFile, err := os.Open(zstdPath)
 	if err != nil {
 		return fmt.Errorf("failed to open Zstd file: %w", err)
 	}
 	defer zstdFile.Close()
 
-	// Create Zstd reader
 	zstdReader, err := zstd.NewReader(zstdFile)
 	if err != nil {
 		return fmt.Errorf("failed to create Zstd reader: %w", err)
@@ -670,20 +951,16 @@ func (cm *CommitManager) extractZstdToPSD(zstdPath, outputPath, originalFilePath
 
 // extractZipToPSD extracts ZIP cached file back to PSD format
 func (cm *CommitManager) extractZipToPSD(zipPath, outputPath, originalFilePath string) error {
-	// Open ZIP file
 	zipReader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to open ZIP file: %w", err)
 	}
 	defer zipReader.Close()
 
-	// Find the target file in ZIP archive
 	targetFileName := filepath.Base(originalFilePath)
 
 	for _, file := range zipReader.File {
-		// Match by filename (handle path variations)
 		if filepath.Base(file.Name) == targetFileName || file.Name == originalFilePath {
-			// Found the target file, extract it
 			return cm.extractZipEntryToPSD(file, outputPath)
 		}
 	}
@@ -693,21 +970,18 @@ func (cm *CommitManager) extractZipToPSD(zipPath, outputPath, originalFilePath s
 
 // extractZipEntryToPSD extracts a specific ZIP entry to PSD file
 func (cm *CommitManager) extractZipEntryToPSD(zipEntry *zip.File, outputPath string) error {
-	// Open the ZIP entry
 	reader, err := zipEntry.Open()
 	if err != nil {
 		return fmt.Errorf("failed to open ZIP entry: %w", err)
 	}
 	defer reader.Close()
 
-	// Create output file
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer outputFile.Close()
 
-	// Copy content
 	_, err = io.Copy(outputFile, reader)
 	if err != nil {
 		return fmt.Errorf("failed to extract ZIP entry: %w", err)
@@ -716,8 +990,7 @@ func (cm *CommitManager) extractZipEntryToPSD(zipEntry *zip.File, outputPath str
 	return nil
 }
 
-// extractStreamToPSD - ENHANCED VERSION with better format detection
-// Handles both simple file streams and structured streams with improved logic
+// extractStreamToPSD handles both simple file streams and structured streams
 func (cm *CommitManager) extractStreamToPSD(reader io.Reader, outputPath, originalFilePath string) error {
 	// Read first chunk to detect format
 	const chunkSize = 4096
@@ -766,12 +1039,10 @@ func (cm *CommitManager) extractStreamToPSD(reader io.Reader, outputPath, origin
 	return nil
 }
 
-// extractStructuredStreamToPSD - MEMORY-EFFICIENT VERSION
-// Streams through data without loading entire file into memory
+// extractStructuredStreamToPSD streams through data without loading entire file into memory
 func (cm *CommitManager) extractStructuredStreamToPSD(data []byte, outputPath, originalFilePath string) error {
 	targetFileName := filepath.Base(originalFilePath)
 
-	// Use buffered reader for memory efficiency
 	reader := bytes.NewReader(data)
 	bufReader := bufio.NewReader(reader)
 
@@ -828,20 +1099,6 @@ func (cm *CommitManager) extractStructuredStreamToPSD(data []byte, outputPath, o
 	}
 
 	return fmt.Errorf("target file not found in structured stream: %s", targetFileName)
-}
-
-// parseInt64 safely parses string to int64 with error handling
-// Helper function for parsing file sizes from structured streams
-func (cm *CommitManager) parseInt64(s string) int64 {
-	result := int64(0)
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			result = result*10 + int64(r-'0')
-		} else {
-			return 0
-		}
-	}
-	return result
 }
 
 // compareLayerVersions compares two sets of layers and identifies changes
@@ -1077,421 +1334,5 @@ func (cm *CommitManager) createSmartDeltaFile(deltaPath string, psdFile *staging
 // fallbackToBinaryDelta falls back to regular binary delta if smart analysis fails
 func (cm *CommitManager) fallbackToBinaryDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	fmt.Printf("Falling back to binary delta compression...\n")
-	return cm.createBsdiffDeltaFast(files, version, baseVersion)
-}
-
-// Performance display and logging functions
-// Provides detailed feedback on ultra-fast compression performance
-
-// displayUltraFastCompressionStats shows comprehensive performance metrics
-// Displays strategy-specific information and speed improvements
-func (cm *CommitManager) displayUltraFastCompressionStats(result *CompressionResult, totalTime time.Duration) {
-	compressionPercent := (1 - result.CompressionRatio) * 100
-	totalTimeMs := float64(totalTime.Nanoseconds()) / 1000000.0
-
-	// Ultra-fast specific display with performance metrics
-	switch result.Strategy {
-	case "lz4":
-		fmt.Printf("LZ4 Ultra-Fast: %.1f%% compressed in %.1fms\n", compressionPercent, result.CompressionTime)
-		fmt.Printf("Speed improvement: %.1fx faster than traditional ZIP!\n", result.SpeedImprovement)
-		fmt.Printf("Cache: %s | File: %s\n", result.CacheLevel, result.OutputFile)
-	case "psd_smart":
-		fmt.Printf("PSD Smart Delta: %.1f%% space saved in %.1fms\n", compressionPercent, result.CompressionTime)
-		fmt.Printf("Base: v%d | Changes detected and optimized\n", result.BaseVersion)
-	case "bsdiff":
-		fmt.Printf("Fast Binary Delta: %.1f%% saved in %.1fms\n", compressionPercent, result.CompressionTime)
-		fmt.Printf("Base: v%d | Delta file: %s\n", result.BaseVersion, result.OutputFile)
-	default:
-		fmt.Printf("%s compression: %.1f%% in %.1fms\n", strings.ToUpper(result.Strategy), compressionPercent, result.CompressionTime)
-	}
-
-	// Overall performance summary with target metrics
-	if totalTimeMs < 500 { // Less than 0.5 seconds total
-		fmt.Printf("Fast commit completed in %.0fms\n", totalTimeMs)
-	} else {
-		fmt.Printf("Fast commit completed in %.0fms\n", totalTimeMs)
-	}
-
-	// Background optimization notice for user awareness
-	if cm.enableBackgroundOpt && result.Strategy == "lz4" {
-		fmt.Printf("Background optimization scheduled for better compression\n")
-	}
-}
-
-// Utility and helper functions for ultra-fast compression system
-
-// loadUltraFastConfig loads ultra-fast compression configuration from repository
-// Allows customization of compression settings and cache behavior
-func (cm *CommitManager) loadUltraFastConfig() {
-	if data, err := os.ReadFile(cm.ConfigFile); err == nil {
-		var config map[string]interface{}
-		if json.Unmarshal(data, &config) == nil {
-			// Load ultra-fast specific settings
-			if compression, ok := config["compression"].(map[string]interface{}); ok {
-				if lz4Config, ok := compression["lz4_stage"].(map[string]interface{}); ok {
-					if level, ok := lz4Config["compression_level"].(float64); ok {
-						cm.lz4CompressionLevel = int(level)
-					}
-				}
-			}
-		}
-	}
-}
-
-// findVersionInCache searches for version file across 3-tier cache hierarchy
-// Optimizes access by checking hot cache first, then warm, then cold
-func (cm *CommitManager) findVersionInCache(version int) string {
-	// Check hot cache (LZ4) first - fastest access
-	hotPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
-	if cm.fileExists(hotPath) {
-		return hotPath
-	}
-
-	// Check warm cache (Zstd) - good balance of speed and compression
-	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
-	if cm.fileExists(warmPath) {
-		return warmPath
-	}
-
-	// Check legacy objects (ZIP) - fallback compatibility
-	legacyPath := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.zip", version))
-	if cm.fileExists(legacyPath) {
-		return legacyPath
-	}
-
-	return ""
-}
-
-// openCachedFile opens a cached file with appropriate decompression
-// Automatically handles different compression formats in cache hierarchy
-func (cm *CommitManager) openCachedFile(path string) (io.ReadCloser, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return appropriate decompression reader based on file extension
-	if strings.HasSuffix(path, ".lz4") {
-		return &lz4ReadCloser{lz4.NewReader(file), file}, nil
-	} else if strings.HasSuffix(path, ".zstd") {
-		zstdReader, err := zstd.NewReader(file)
-		if err != nil {
-			file.Close()
-			return nil, err
-		}
-		return &zstdReadCloser{zstdReader, file}, nil
-	}
-
-	// Return raw file for ZIP and other formats
-	return file, nil
-}
-
-// Helper reader types for seamless decompression across cache tiers
-
-// lz4ReadCloser provides transparent LZ4 decompression
-type lz4ReadCloser struct {
-	*lz4.Reader
-	file *os.File
-}
-
-func (r *lz4ReadCloser) Close() error {
-	return r.file.Close()
-}
-
-// zstdReadCloser provides transparent Zstd decompression
-type zstdReadCloser struct {
-	*zstd.Decoder
-	file *os.File
-}
-
-func (r *zstdReadCloser) Close() error {
-	r.Decoder.Close()
-	return r.file.Close()
-}
-
-// Cache and file management utilities
-
-// createTempLZ4File - FIXED VERSION with consistent structured format
-// Creates temporary LZ4 file for delta operations with same format as main compression
-func (cm *CommitManager) createTempLZ4File(files []*staging.StagedFile, outputPath string) error {
-	outFile, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outFile.Close()
-
-	lz4Writer := lz4.NewWriter(outFile)
-	defer lz4Writer.Close()
-	lz4Writer.Apply(lz4.CompressionLevelOption(lz4.Level1))
-
-	// Use SAME structured format as createLZ4UltraFast for consistency
-	for _, file := range files {
-		// Read file content to get accurate size
-		srcFile, err := os.Open(file.AbsolutePath)
-		if err != nil {
-			fmt.Printf("Warning: failed to open %s for temp file: %v\n", file.Path, err)
-			continue
-		}
-
-		fileContent, err := io.ReadAll(srcFile)
-		srcFile.Close()
-		if err != nil {
-			fmt.Printf("Warning: failed to read %s for temp file: %v\n", file.Path, err)
-			continue
-		}
-
-		actualSize := int64(len(fileContent))
-
-		// Write structured header (SAME as main compression)
-		header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
-		lz4Writer.Write([]byte(header))
-
-		// Write file content
-		lz4Writer.Write(fileContent)
-	}
-
-	return nil
-}
-
-// calculateCompressionResult computes comprehensive compression statistics
-// Provides detailed metrics for performance tracking and optimization
-func (cm *CommitManager) calculateCompressionResult(strategy, outputFile string, files []*staging.StagedFile, baseVersion int, compressionTimeMs float64) (*CompressionResult, error) {
-	var originalSize int64
-	for _, f := range files {
-		originalSize += f.Size
-	}
-
-	info, err := os.Stat(outputFile)
-	if err != nil {
-		return nil, err
-	}
-
-	compressedSize := info.Size()
-
-	return &CompressionResult{
-		Strategy:         strategy,
-		OutputFile:       filepath.Base(outputFile),
-		OriginalSize:     originalSize,
-		CompressedSize:   compressedSize,
-		CompressionRatio: float64(compressedSize) / float64(originalSize),
-		CompressionTime:  compressionTimeMs,
-		CacheLevel:       "hot",
-		BaseVersion:      baseVersion,
-		CreatedAt:        time.Now(),
-	}, nil
-}
-
-// LEGACY COMPATIBILITY FUNCTIONS
-// These functions maintain backward compatibility while leveraging ultra-fast improvements
-
-// shouldCreateNewSnapshot enforces delta chain length limit for optimal performance
-// Prevents delta chains from becoming too long and impacting restoration speed
-func (cm *CommitManager) shouldCreateNewSnapshot(ver int) bool {
-	return cm.getDeltaChainLength(ver) >= cm.MaxDeltaChainLength
-}
-
-// getDeltaChainLength counts delta chain length back to last ZIP snapshot
-// Used to determine when to create new base snapshots
-func (cm *CommitManager) getDeltaChainLength(ver int) int {
-	count := 0
-	for v := ver; v > 0; v-- {
-		if cm.fileExists(filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.zip", v))) {
-			break
-		}
-		count++
-	}
-	return count
-}
-
-// fileExists checks if a file exists on the filesystem
-// Simple utility function used throughout the cache system
-func (cm *CommitManager) fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// GetCurrentVersion returns the current version by scanning JSON metadata files
-// Determines the next version number for new commits
-func (cm *CommitManager) GetCurrentVersion() int {
-	entries, err := os.ReadDir(cm.ObjectsDir)
-	if err != nil {
-		return 0
-	}
-	max := 0
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "v") && strings.HasSuffix(e.Name(), ".json") {
-			n, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(e.Name(), "v"), ".json"))
-			if n > max {
-				max = n
-			}
-		}
-	}
-	return max
-}
-
-// generateCommitHash produces a secure 12-character SHA256-based hash
-// Creates unique commit identifiers based on message, files, and timestamp
-func (cm *CommitManager) generateCommitHash(msg string, files []*staging.StagedFile, ver int) string {
-	h := sha256.New()
-	h.Write([]byte(msg))
-	h.Write([]byte(strconv.Itoa(ver)))
-	h.Write([]byte(time.Now().Format(time.RFC3339)))
-	for _, f := range files {
-		h.Write([]byte(f.AbsolutePath))
-		h.Write([]byte(strconv.FormatInt(f.Size, 10)))
-		h.Write([]byte(f.ModTime.Format(time.RFC3339)))
-	}
-	return fmt.Sprintf("%x", h.Sum(nil))[:12]
-}
-
-// getAuthor reads author information from repository configuration
-// Returns configured author or default value
-func (cm *CommitManager) getAuthor() string {
-	if data, err := os.ReadFile(cm.ConfigFile); err == nil {
-		var cfg map[string]interface{}
-		if json.Unmarshal(data, &cfg) == nil {
-			if a, ok := cfg["author"].(string); ok {
-				return a
-			}
-		}
-	}
-	return "DGit User"
-}
-
-// getCurrentCommitHash reads the current HEAD commit hash
-// Used for tracking commit parent relationships
-func (cm *CommitManager) getCurrentCommitHash() string {
-	if d, err := os.ReadFile(cm.HeadFile); err == nil {
-		return strings.TrimSpace(string(d))
-	}
-	return ""
-}
-
-// scanFilesMetadata extracts comprehensive metadata from design files
-// Uses scanner package to get design-specific information for commit tracking
-func (cm *CommitManager) scanFilesMetadata(files []*staging.StagedFile) (map[string]interface{}, error) {
-	md := make(map[string]interface{})
-	for _, f := range files {
-		sc := scanner.NewFileScanner()
-		info, err := sc.ScanFile(f.AbsolutePath)
-		if err != nil {
-			// Store basic info even if detailed scanning fails
-			md[f.Path] = map[string]interface{}{
-				"type":          f.FileType,
-				"size":          f.Size,
-				"last_modified": f.ModTime,
-				"scan_error":    err.Error(),
-			}
-			continue
-		}
-		// Store comprehensive design file metadata
-		md[f.Path] = map[string]interface{}{
-			"type":          info.Type,
-			"dimensions":    info.Dimensions,
-			"color_mode":    info.ColorMode,
-			"version":       info.Version,
-			"layers":        info.Layers,
-			"artboards":     info.Artboards,
-			"objects":       info.Objects,
-			"layer_names":   info.LayerNames,
-			"size":          f.Size,
-			"last_modified": f.ModTime,
-		}
-	}
-	return md, nil
-}
-
-// saveCommitMetadata writes commit metadata to JSON file
-// Persists commit information for repository history tracking
-func (cm *CommitManager) saveCommitMetadata(c *Commit) error {
-	path := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.json", c.Version))
-	data, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal commit: %w", err)
-	}
-	return os.WriteFile(path, data, 0644)
-}
-
-// updateHead writes the new commit hash to HEAD file
-// Updates repository state to point to the latest commit
-func (cm *CommitManager) updateHead(hash string) error {
-	return os.WriteFile(cm.HeadFile, []byte(hash), 0644)
-}
-
-// Legacy function signatures for backward compatibility
-// These functions redirect to ultra-fast implementations while maintaining API compatibility
-
-// createSnapshot decides between full ZIP or delta compression
-// LEGACY - redirects to ultra-fast implementation
-func (cm *CommitManager) createSnapshot(files []*staging.StagedFile, version, prevVersion int) (*CompressionResult, error) {
-	// Redirect to ultra-fast implementation for better performance
-	startTime := time.Now()
-	return cm.createUltraFastSnapshot(files, version, prevVersion, startTime)
-}
-
-// tryDeltaCompression selects and runs delta algorithm
-// LEGACY - redirects to ultra-fast delta implementation
-func (cm *CommitManager) tryDeltaCompression(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
-	startTime := time.Now()
-	return cm.tryUltraFastDelta(files, version, baseVersion, startTime)
-}
-
-// createZipSnapshot creates a ZIP snapshot
-// LEGACY - redirects to LZ4 ultra-fast compression
-func (cm *CommitManager) createZipSnapshot(files []*staging.StagedFile, version int) (*CompressionResult, error) {
-	// Redirect to ultra-fast LZ4 instead of slow ZIP for better performance
-	startTime := time.Now()
-	return cm.createLZ4UltraFast(files, version, startTime)
-}
-
-// displayCompressionStats prints compression summary
-// LEGACY - redirects to ultra-fast display with enhanced metrics
-func (cm *CommitManager) displayCompressionStats(r *CompressionResult) {
-	// Redirect to ultra-fast display with comprehensive metrics
-	cm.displayUltraFastCompressionStats(r, time.Duration(0))
-}
-
-// addFileToZip adds a file to a ZIP archive
-// LEGACY - kept for compatibility with older code
-func (cm *CommitManager) addFileToZip(zw *zip.Writer, f *staging.StagedFile) error {
-	sf, err := os.Open(f.AbsolutePath)
-	if err != nil {
-		return err
-	}
-	defer sf.Close()
-
-	h := &zip.FileHeader{
-		Name:   f.Path,
-		Method: zip.Deflate,
-	}
-	h.SetMode(0644)
-	h.Flags |= 0x800 // UTF-8 encoding flag
-	entry, err := zw.CreateHeader(h)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(entry, sf)
-	return err
-}
-
-// createTempZip creates a temporary ZIP file directly
-// LEGACY - kept for compatibility with systems that still require ZIP format
-func (cm *CommitManager) createTempZip(files []*staging.StagedFile, outputPath string) error {
-	outFile, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create temp zip file: %w", err)
-	}
-	defer outFile.Close()
-
-	zw := zip.NewWriter(outFile)
-	defer zw.Close()
-
-	// Add each staged file to the ZIP archive
-	for _, f := range files {
-		if err := cm.addFileToZip(zw, f); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return cm.createBsdiffDelta(files, version, baseVersion)
 }
