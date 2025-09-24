@@ -32,10 +32,10 @@ const (
 	HashSampleSize      = 64 * 1024         // 64KB for hash sampling
 )
 
-// photoshop 패키지의 DetailedLayer 타입
+// DetailedLayer represents detailed layer information from photoshop package
 type DetailedLayer = photoshop.DetailedLayer
 
-// CompressionResult contains comprehensive compression operation metrics
+// CompressionResult containsdetailed compression operation metrics
 type CompressionResult struct {
 	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
 	OutputFile       string    `json:"output_file"`
@@ -542,7 +542,7 @@ type LayerChange struct {
 	PropertyChanges map[string]interface{} `json:"property_changes,omitempty"`
 }
 
-// ChangeAnalysis contains comprehensive analysis of layer changes between versions
+// ChangeAnalysis containsdetailed analysis of layer changes between versions
 type ChangeAnalysis struct {
 	TotalLayers    int           `json:"total_layers"`
 	ChangedLayers  []LayerChange `json:"changed_layers"`
@@ -596,7 +596,7 @@ func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath 
 
 // Performance display and logging functions
 
-// displayCompressionStats shows comprehensive performance metrics
+// displayCompressionStats showsdetailed performance metrics
 func (cm *CommitManager) displayCompressionStats(result *CompressionResult, totalTime time.Duration) {
 	compressionPercent := (1 - result.CompressionRatio) * 100
 	totalTimeMs := float64(totalTime.Nanoseconds()) / 1000000.0
@@ -758,7 +758,7 @@ func (cm *CommitManager) createTempLZ4File(files []*staging.StagedFile, outputPa
 	return nil
 }
 
-// calculateCompressionResult computes comprehensive compression statistics
+// calculateCompressionResult computesdetailed compression statistics
 func (cm *CommitManager) calculateCompressionResult(strategy, outputFile string, files []*staging.StagedFile, baseVersion int, compressionTimeMs float64) (*CompressionResult, error) {
 	var originalSize int64
 	for _, f := range files {
@@ -861,7 +861,7 @@ func (cm *CommitManager) getCurrentCommitHash() string {
 	return ""
 }
 
-// scanFilesMetadata extracts comprehensive metadata from design files
+// scanFilesMetadata extractsdetailed metadata from design files
 func (cm *CommitManager) scanFilesMetadata(files []*staging.StagedFile) (map[string]interface{}, error) {
 	md := make(map[string]interface{})
 	for _, f := range files {
@@ -877,7 +877,7 @@ func (cm *CommitManager) scanFilesMetadata(files []*staging.StagedFile) (map[str
 			}
 			continue
 		}
-		// Store comprehensive design file metadata
+		// Storedetailed design file metadata
 		md[f.Path] = map[string]interface{}{
 			"type":          info.Type,
 			"dimensions":    info.Dimensions,
@@ -1285,7 +1285,7 @@ func (cm *CommitManager) displayLayerChanges(analysis *ChangeAnalysis, baseVersi
 	fmt.Println()
 }
 
-// createSmartDeltaFile creates the actual delta file with comprehensive metadata
+// createSmartDeltaFile creates the actual delta file withdetailed metadata
 func (cm *CommitManager) createSmartDeltaFile(deltaPath string, psdFile *staging.StagedFile, analysis *ChangeAnalysis, baseVersion, version int) (int64, error) {
 	outFile, err := os.Create(deltaPath)
 	if err != nil {
@@ -1293,7 +1293,7 @@ func (cm *CommitManager) createSmartDeltaFile(deltaPath string, psdFile *staging
 	}
 	defer outFile.Close()
 
-	// Create comprehensive delta metadata
+	// Createdetailed delta metadata
 	deltaMetadata := map[string]interface{}{
 		"type":           "psd_smart_delta",
 		"from_version":   baseVersion,
