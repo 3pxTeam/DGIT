@@ -24,6 +24,14 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
+const (
+	SmallFileThreshold  = 50 * 1024 * 1024  // 50MB
+	MediumFileThreshold = 200 * 1024 * 1024 // 200MB
+	LargeFileThreshold  = 500 * 1024 * 1024 // 500MB
+	MaxScanLines        = 1000              // AI file scan limit
+	HashSampleSize      = 64 * 1024         // 64KB for hash sampling
+)
+
 // photoshop 패키지의 DetailedLayer 타입
 type DetailedLayer = photoshop.DetailedLayer
 
@@ -209,21 +217,18 @@ func (cm *CommitManager) createSnapshot(files []*staging.StagedFile, version, pr
 
 // shouldUseLZ4 determines when to use LZ4 compression vs smart delta compression
 func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) bool {
-	// First commit always uses LZ4
 	if version == 1 {
 		return true
 	}
 
-	// Analyze file characteristics to determine delta compression suitability
 	for _, file := range files {
 		// Large files benefit more from delta compression
-		if file.Size > 50*1024*1024 {
+		if file.Size > SmallFileThreshold { // 50*1024*1024 → SmallFileThreshold
 			fmt.Printf("Large file detected (%s, %.1f MB) - using delta compression\n",
 				filepath.Base(file.Path), float64(file.Size)/(1024*1024))
 			return false
 		}
 
-		// Design files use smart delta compression for better efficiency
 		ext := strings.ToLower(filepath.Ext(file.Path))
 		if ext == ".psd" || ext == ".ai" || ext == ".sketch" {
 			fmt.Printf("Design file detected (%s) - using smart delta compression\n",
@@ -232,7 +237,6 @@ func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) 
 		}
 	}
 
-	// Small and general files use LZ4 for maximum speed
 	return true
 }
 
@@ -287,37 +291,39 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 	// Stream all files through LZ4 with structured headers
 	var originalSize int64
 	for _, file := range files {
-		// Read file content
-		srcFile, err := os.Open(file.AbsolutePath)
-		if err != nil {
-			fmt.Printf("Warning: failed to open %s: %v\n", file.Path, err)
-			continue
-		}
+		// 익명 함수로 defer 처리
+		func() {
+			srcFile, err := os.Open(file.AbsolutePath)
+			if err != nil {
+				fmt.Printf("Warning: failed to open %s: %v\n", file.Path, err)
+				return
+			}
+			defer srcFile.Close() // 이제 익명함수 내에서 defer 호출
 
-		fileContent, err := io.ReadAll(srcFile)
-		srcFile.Close()
-		if err != nil {
-			fmt.Printf("Warning: failed to read %s: %v\n", file.Path, err)
-			continue
-		}
+			fileContent, err := io.ReadAll(srcFile)
+			if err != nil {
+				fmt.Printf("Warning: failed to read %s: %v\n", file.Path, err)
+				return
+			}
 
-		actualSize := int64(len(fileContent))
-		originalSize += actualSize
+			actualSize := int64(len(fileContent))
+			originalSize += actualSize
 
-		// Write structured file header for identification during extraction
-		header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
-		_, err = lz4Writer.Write([]byte(header))
-		if err != nil {
-			fmt.Printf("Warning: failed to write header for %s: %v\n", file.Path, err)
-			continue
-		}
+			// Write structured file header for identification during extraction
+			header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
+			_, err = lz4Writer.Write([]byte(header))
+			if err != nil {
+				fmt.Printf("Warning: failed to write header for %s: %v\n", file.Path, err)
+				return
+			}
 
-		// Write file content through LZ4
-		_, err = lz4Writer.Write(fileContent)
-		if err != nil {
-			fmt.Printf("Warning: failed to compress %s: %v\n", file.Path, err)
-			continue
-		}
+			// Write file content through LZ4
+			_, err = lz4Writer.Write(fileContent)
+			if err != nil {
+				fmt.Printf("Warning: failed to compress %s: %v\n", file.Path, err)
+				return
+			}
+		}()
 	}
 
 	// Ensure LZ4 writer is properly closed before checking file size
@@ -808,16 +814,16 @@ func (cm *CommitManager) GetCurrentVersion() int {
 	if err != nil {
 		return 0
 	}
-	max := 0
+	maxVersion := 0 // max → maxVersion 변경
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), "v") && strings.HasSuffix(e.Name(), ".json") {
 			n, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(e.Name(), "v"), ".json"))
-			if n > max {
-				max = n
+			if n > maxVersion { // max → maxVersion 변경
+				maxVersion = n // max → maxVersion 변경
 			}
 		}
 	}
-	return max
+	return maxVersion // max → maxVersion 변경
 }
 
 // generateCommitHash produces a secure 12-character SHA256-based hash
