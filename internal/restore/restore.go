@@ -25,10 +25,10 @@ type RestoreManager struct {
 	ObjectsDir string
 	DeltaDir   string
 
-	// Simplified Storage System (기존 3-tier 캐시에서 변경)
-	VersionsDir string // 메인 버전 저장소 (.dgit/versions/)
-	CommitsDir  string // 커밋 메타데이터 (.dgit/commits/)
-	CacheDir    string // 단일 캐시 디렉토리 (.dgit/cache/)
+	// Simplified Storage System
+	VersionsDir string // Main version storage (.dgit/versions/)
+	CommitsDir  string // Commit metadata (.dgit/commits/)
+	CacheDir    string // Single cache directory (.dgit/cache/)
 }
 
 // NewRestoreManager creates a new restore manager with simplified structure
@@ -38,32 +38,30 @@ func NewRestoreManager(dgitDir string) *RestoreManager {
 		DgitDir:    dgitDir,
 		ObjectsDir: objectsDir,
 		DeltaDir:   filepath.Join(objectsDir, "deltas"),
-		// 새로운 폴더 구조
-		VersionsDir: filepath.Join(dgitDir, "versions"), // 기존 HotCacheDir 대신
-		CommitsDir:  filepath.Join(dgitDir, "commits"),  // 새로 추가
-		CacheDir:    filepath.Join(dgitDir, "cache"),    // 기존 WarmCacheDir, ColdCacheDir 통합
+		// Simplified storage structure
+		VersionsDir: filepath.Join(dgitDir, "versions"),
+		CommitsDir:  filepath.Join(dgitDir, "commits"),
+		CacheDir:    filepath.Join(dgitDir, "cache"),
 	}
 }
 
 // RestoreResult contains restoration operation information
-// Enhanced with performance metrics and cache utilization data
 type RestoreResult struct {
 	RestoredFiles    []string
 	SkippedFiles     []string
 	ErrorFiles       map[string]error
-	RestoreMethod    string // "hot_cache", "warm_cache", "cold_cache", "smart_delta", "delta_chain", "zip"
+	RestoreMethod    string // "versions", "cache", "smart_delta", "delta_chain", "zip"
 	RestorationTime  time.Duration
 	TotalFilesCount  int
 	SourceVersion    int
 	SourceCommitHash string
-	// Performance Metrics for continuous optimization
-	CacheHitLevel    string  // "hot", "warm", "cold", "miss" - cache performance tracking
+	// Performance Metrics
+	CacheHitLevel    string  // "versions", "cache", "miss" - cache performance tracking
 	SpeedImprovement float64 // Multiplier vs traditional restoration methods
-	DataTransferred  int64   // Bytes actually read from storage for efficiency analysis
+	DataTransferred  int64   // Bytes actually read from storage
 }
 
-// RestoreFilesFromCommit restores files using fast cache-optimized strategies
-// Intelligently selects fastest available restoration method based on cache availability
+// RestoreFilesFromCommit restores files using optimized strategies
 func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, filesToRestore []string, targetCommit interface{}) error {
 	startTime := time.Now()
 
@@ -75,24 +73,24 @@ func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, fil
 
 	fmt.Printf("Analyzing restoration strategy for v%d...\n", version)
 
-	// Load comprehensive commit data using log manager
+	// Load commit data using log manager
 	logManager := log.NewLogManager(rm.DgitDir)
 	commit, err := logManager.GetCommit(version)
 	if err != nil {
 		return fmt.Errorf("failed to load commit data: %w", err)
 	}
 
-	// Choose optimal fast restoration method based on cache availability
+	// Choose optimal restoration method based on cache availability
 	result, err := rm.performFastRestore(commit, filesToRestore, version)
 	if err != nil {
 		return err
 	}
 
-	// Calculate comprehensive performance metrics
+	// Calculate performance metrics
 	result.RestorationTime = time.Since(startTime)
 	result.SpeedImprovement = rm.calculateSpeedImprovement(result.RestoreMethod, result.RestorationTime)
 
-	// Display detailed fast restoration results
+	// Display restoration results
 	rm.displayRestoreResults(result, commitHashOrVersion, version)
 
 	return nil
@@ -109,12 +107,12 @@ func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore 
 		ErrorFiles:       make(map[string]error),
 	}
 
-	// Priority 1: Versions Directory (LZ4) - 최우선!
+	// Priority 1: Versions Directory (LZ4) - highest priority
 	if versionResult := rm.tryVersionRestore(commit, filesToRestore, result); versionResult != nil {
 		return versionResult, nil
 	}
 
-	// Priority 2: Cache Directory - 최적화된 접근
+	// Priority 2: Cache Directory - optimized access
 	if cacheResult := rm.tryCacheRestore(commit, filesToRestore, result); cacheResult != nil {
 		return cacheResult, nil
 	}
@@ -156,7 +154,7 @@ func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore 
 	return result, fmt.Errorf("no restoration method available for version %d", version)
 }
 
-// tryVersionRestore attempts fast restoration from versions directory (기존 tryVersionRestore)
+// tryVersionRestore attempts restoration from versions directory
 func (rm *RestoreManager) tryVersionRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
 	if commit.CompressionInfo == nil || commit.CompressionInfo.Strategy != "lz4" {
 		return nil
@@ -179,7 +177,7 @@ func (rm *RestoreManager) tryVersionRestore(commit *log.Commit, filesToRestore [
 	return result
 }
 
-// tryCacheRestore attempts restoration from cache directory (기존 tryCacheRestore)
+// tryCacheRestore attempts restoration from cache directory
 func (rm *RestoreManager) tryCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
 	// Check for cache version
 	cachePath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d.lz4", commit.Version))
@@ -210,9 +208,9 @@ func (rm *RestoreManager) tryCacheRestore(commit *log.Commit, filesToRestore []s
 	return result
 }
 
-// extractFromLZ4 extracts files from LZ4 storage with fast performance (기존 extractFromLZ4)
+// extractFromLZ4 extracts files from LZ4 storage
 func (rm *RestoreManager) extractFromLZ4(lz4Path string, filesToRestore []string, result *RestoreResult) error {
-	// Extract version number from LZ4 filename (e.g., v1.lz4 → 1)
+	// Extract version number from LZ4 filename
 	fileName := filepath.Base(lz4Path)
 	versionStr := strings.TrimSuffix(strings.TrimPrefix(fileName, "v"), ".lz4")
 	version, err := strconv.Atoi(versionStr)
@@ -220,14 +218,14 @@ func (rm *RestoreManager) extractFromLZ4(lz4Path string, filesToRestore []string
 		return fmt.Errorf("failed to parse version from filename %s: %w", fileName, err)
 	}
 
-	// Load commit metadata for original file information
+	// Load commit metadata from commits directory
 	logManager := log.NewLogManager(rm.DgitDir)
 	commit, err := logManager.GetCommit(version)
 	if err != nil {
 		return fmt.Errorf("failed to load commit v%d: %w", version, err)
 	}
 
-	// Open LZ4 file for fast decompression
+	// Open LZ4 file for decompression
 	file, err := os.Open(lz4Path)
 	if err != nil {
 		return fmt.Errorf("failed to open LZ4 file: %w", err)
@@ -288,8 +286,27 @@ func (rm *RestoreManager) extractFromLZ4(lz4Path string, filesToRestore []string
 	return nil
 }
 
+// extractFromZstd extracts files from Zstd cache
+func (rm *RestoreManager) extractFromZstd(zstdPath string, filesToRestore []string, result *RestoreResult) error {
+	// Open Zstd file for decompression
+	file, err := os.Open(zstdPath)
+	if err != nil {
+		return fmt.Errorf("failed to open Zstd file: %w", err)
+	}
+	defer file.Close()
+
+	// Create Zstd reader for efficient decompression
+	zstdReader, err := zstd.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create Zstd reader: %w", err)
+	}
+	defer zstdReader.Close()
+
+	// Extract files from Zstd stream
+	return rm.extractFilesFromStream(zstdReader, filesToRestore, result, zstdPath)
+}
+
 // extractFilesFromStream extracts files from LZ4/Zstd stream format efficiently
-// Handles structured stream format with file headers and data sections
 func (rm *RestoreManager) extractFilesFromStream(reader io.Reader, filesToRestore []string, result *RestoreResult, sourcePath string) error {
 	// Read entire stream for processing
 	data, err := io.ReadAll(reader)
@@ -379,7 +396,6 @@ func (rm *RestoreManager) extractFilesFromStream(reader io.Reader, filesToRestor
 }
 
 // createFileFromData creates a file with given data and proper directory structure
-// Ensures target directories exist and handles file creation safely
 func (rm *RestoreManager) createFileFromData(filePath string, data []byte) error {
 	// Create target directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
@@ -390,7 +406,7 @@ func (rm *RestoreManager) createFileFromData(filePath string, data []byte) error
 	return os.WriteFile(filePath, data, 0644)
 }
 
-// restoreFromSmartDelta restores from smart delta compression (PSD/Design optimized)
+// restoreFromSmartDelta restores from smart delta compression
 func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToRestore []string, result *RestoreResult) (*RestoreResult, error) {
 	if commit.CompressionInfo == nil {
 		return result, fmt.Errorf("no compression info in commit")
@@ -439,7 +455,7 @@ func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToResto
 		return result, fmt.Errorf("failed to parse metadata length: %w", err)
 	}
 
-	// Find metadata start position (after second newline)
+	// Find metadata start position
 	metadataStartPos := len(lines[0]) + 1 + len(lines[1]) + 1
 	if metadataStartPos+metadataLength > len(deltaData) {
 		return result, fmt.Errorf("invalid metadata length: exceeds file size")
@@ -553,9 +569,8 @@ func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToResto
 }
 
 // restoreFromOptimizedDeltaChain restores from optimized delta chain
-// Handles complex delta chains with performance optimization
 func (rm *RestoreManager) restoreFromOptimizedDeltaChain(targetVersion int, filesToRestore []string, result *RestoreResult) (*RestoreResult, error) {
-	// Find optimal restoration path through cache hierarchy
+	// Find optimal restoration path through simplified storage hierarchy
 	restorationPath, err := rm.findOptimizedRestorationPath(targetVersion)
 	if err != nil {
 		return result, err
@@ -581,7 +596,7 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 
 	// Work backwards with simplified storage prioritization
 	for currentVersion > 0 {
-		// Priority 1: Check versions directory first (LZ4) for instant access
+		// Priority 1: Check versions directory first (LZ4)
 		versionPath := filepath.Join(rm.VersionsDir, fmt.Sprintf("v%d.lz4", currentVersion))
 		if rm.fileExists(versionPath) {
 			step := RestorationStep{
@@ -593,7 +608,7 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 			break
 		}
 
-		// Priority 2: Check cache directory for optimized files
+		// Priority 2: Check cache directory
 		cachePath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d.lz4", currentVersion))
 		if rm.fileExists(cachePath) {
 			step := RestorationStep{
@@ -629,7 +644,7 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 			break
 		}
 
-		// Look for delta files for incremental restoration
+		// Look for delta files
 		deltaPath := filepath.Join(rm.DeltaDir, fmt.Sprintf("v%d_from_v%d.bsdiff", currentVersion, currentVersion-1))
 		if rm.fileExists(deltaPath) {
 			step := RestorationStep{
@@ -642,7 +657,7 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 			continue
 		}
 
-		// Check for smart delta files (design-specific) in cache
+		// Check for smart delta files in cache
 		smartDeltaPath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", currentVersion, currentVersion-1))
 		if rm.fileExists(smartDeltaPath) {
 			step := RestorationStep{
@@ -665,13 +680,12 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 	return path, nil
 }
 
-// executeOptimizedRestorationPath executes restoration plan with cache optimization
-// Handles conversion between different cache formats and delta application
+// executeOptimizedRestorationPath executes restoration plan
 func (rm *RestoreManager) executeOptimizedRestorationPath(path []RestorationStep) (string, error) {
-	// Start with the base file from cache hierarchy
+	// Start with the base file from simplified storage hierarchy
 	baseStep := path[0]
 
-	// Create working file based on base type with appropriate conversion
+	// Create working file based on base type
 	tempFile := filepath.Join(rm.ObjectsDir, fmt.Sprintf("temp_restore_%d.zip", time.Now().UnixNano()))
 
 	switch baseStep.Type {
@@ -691,7 +705,7 @@ func (rm *RestoreManager) executeOptimizedRestorationPath(path []RestorationStep
 		return "", fmt.Errorf("unsupported base file type: %s", baseStep.Type)
 	}
 
-	// Apply deltas in sequence for incremental restoration
+	// Apply deltas in sequence
 	for i := 1; i < len(path); i++ {
 		step := path[i]
 		nextTempFile := filepath.Join(rm.ObjectsDir, fmt.Sprintf("temp_restore_%d_%d.zip", time.Now().UnixNano(), i))
@@ -719,8 +733,7 @@ func (rm *RestoreManager) executeOptimizedRestorationPath(path []RestorationStep
 	return tempFile, nil
 }
 
-// convertLZ4ToZip converts LZ4 cache file to ZIP format for processing
-// Handles transparent conversion from hot cache to standard ZIP format
+// convertLZ4ToZip converts LZ4 cache file to ZIP format
 func (rm *RestoreManager) convertLZ4ToZip(lz4Path, zipPath string) error {
 	// Open LZ4 file for reading
 	lz4File, err := os.Open(lz4Path)
@@ -746,8 +759,7 @@ func (rm *RestoreManager) convertLZ4ToZip(lz4Path, zipPath string) error {
 	return rm.convertStreamToZip(lz4Reader, zipWriter)
 }
 
-// convertZstdToZip converts Zstd cache file to ZIP format for processing
-// Handles transparent conversion from warm cache to standard ZIP format
+// convertZstdToZip converts Zstd cache file to ZIP format
 func (rm *RestoreManager) convertZstdToZip(zstdPath, zipPath string) error {
 	// Open Zstd file for reading
 	zstdFile, err := os.Open(zstdPath)
@@ -778,7 +790,6 @@ func (rm *RestoreManager) convertZstdToZip(zstdPath, zipPath string) error {
 }
 
 // convertStreamToZip converts LZ4/Zstd stream format to standard ZIP
-// Parses structured stream and creates proper ZIP entries
 func (rm *RestoreManager) convertStreamToZip(reader io.Reader, zipWriter *zip.Writer) error {
 	// Read entire stream for processing
 	data, err := io.ReadAll(reader)
@@ -847,8 +858,7 @@ func (rm *RestoreManager) convertStreamToZip(reader io.Reader, zipWriter *zip.Wr
 	return nil
 }
 
-// applySmartDelta applies smart delta to create new file (design-specific)
-// Updated to handle actual smart delta application
+// applySmartDelta applies smart delta to create new file
 func (rm *RestoreManager) applySmartDelta(baseFile, deltaFile, newFile string) error {
 	// Read delta file
 	deltaData, err := os.ReadFile(deltaFile)
@@ -864,9 +874,6 @@ func (rm *RestoreManager) applySmartDelta(baseFile, deltaFile, newFile string) e
 	}
 
 	// For PSD smart delta, the delta file contains the complete new version
-	// (as implemented in commit.go's createSmartDeltaFile)
-	// So we need to extract and decompress the binary data
-
 	lines := strings.Split(content, "\n")
 	if len(lines) < 3 {
 		return fmt.Errorf("invalid smart delta format")
@@ -910,8 +917,10 @@ func (rm *RestoreManager) applySmartDelta(baseFile, deltaFile, newFile string) e
 		metadataBytes := deltaData[metadataStartPos : metadataStartPos+metadataLength]
 		var metadata map[string]interface{}
 		if json.Unmarshal(metadataBytes, &metadata) == nil {
-			if summary, ok := metadata["layer_analysis"].(map[string]interface{})["changes_summary"].(string); ok {
-				fmt.Printf("Applied smart delta: %s\n", summary)
+			if layerAnalysis, ok := metadata["layer_analysis"].(map[string]interface{}); ok {
+				if summary, ok := layerAnalysis["changes_summary"].(string); ok {
+					fmt.Printf("Applied smart delta: %s\n", summary)
+				}
 			}
 		}
 	}
@@ -920,48 +929,37 @@ func (rm *RestoreManager) applySmartDelta(baseFile, deltaFile, newFile string) e
 }
 
 // calculateSpeedImprovement calculates speed improvement based on restore method
-// Provides performance metrics compared to traditional restoration baseline
 func (rm *RestoreManager) calculateSpeedImprovement(method string, duration time.Duration) float64 {
-	// Traditional restoration baseline: 10 seconds for typical operations
+	// Traditional restoration baseline: 10 seconds
 	baselineMs := 10000.0
 	actualMs := float64(duration.Nanoseconds()) / 1000000.0
 
 	switch method {
-	case "hot_cache":
-		// Expected: fast, calculate actual improvement ratio
+	case "versions":
 		return baselineMs / actualMs
-	case "warm_cache":
-		// Expected: balanced, calculate actual improvement ratio
-		return baselineMs / actualMs
-	case "cold_cache":
-		// Expected: slower, still much faster than baseline
+	case "cache":
 		return baselineMs / actualMs
 	case "smart_delta":
-		// Variable performance based on delta size and complexity
 		return baselineMs / actualMs
 	default:
-		// Other methods calculated against baseline
 		return baselineMs / actualMs
 	}
 }
 
-// displayRestoreResults shows comprehensive fast restoration results
-// Provides detailed feedback on performance and cache utilization
+// displayRestoreResults shows restoration results
 func (rm *RestoreManager) displayRestoreResults(result *RestoreResult, commitRef string, version int) {
 	if len(result.RestoredFiles) > 0 {
-		fmt.Printf("\nFast restoration completed in %.3f seconds\n",
+		fmt.Printf("\nRestoration completed in %.3f seconds\n",
 			result.RestorationTime.Seconds())
 
-		// Show method-specific information with performance metrics
+		// Show method-specific information
 		switch result.RestoreMethod {
-		case "hot_cache":
-			fmt.Printf("Hot cache (LZ4) restoration - %.1fx faster than traditional!\n", result.SpeedImprovement)
-			fmt.Printf("Data transferred: %.2f KB from hot cache\n", float64(result.DataTransferred)/1024)
-		case "warm_cache":
-			fmt.Printf("Warm cache (Zstd) restoration - %.1fx faster than traditional!\n", result.SpeedImprovement)
-			fmt.Printf("Data transferred: %.2f KB from warm cache\n", float64(result.DataTransferred)/1024)
-		case "cold_cache":
-			fmt.Printf("Cold cache restoration - %.1fx faster than traditional!\n", result.SpeedImprovement)
+		case "versions":
+			fmt.Printf("Versions directory restoration - %.1fx faster than traditional!\n", result.SpeedImprovement)
+			fmt.Printf("Data transferred: %.2f KB from versions storage\n", float64(result.DataTransferred)/1024)
+		case "cache":
+			fmt.Printf("Cache directory restoration - %.1fx faster than traditional!\n", result.SpeedImprovement)
+			fmt.Printf("Data transferred: %.2f KB from cache storage\n", float64(result.DataTransferred)/1024)
 		case "smart_delta":
 			fmt.Printf("Smart delta restoration - intelligent reconstruction!\n")
 		case "delta_chain":
@@ -992,12 +990,11 @@ func (rm *RestoreManager) displayRestoreResults(result *RestoreResult, commitRef
 		fmt.Println("No files found matching the specified criteria.")
 	}
 
-	fmt.Printf("\nFast restoration from commit %s (v%d) completed!\n", commitRef, version)
+	fmt.Printf("\nRestoration from commit %s (v%d) completed!\n", commitRef, version)
 	fmt.Printf("Cache performance: %s cache hit\n", result.CacheHitLevel)
 }
 
 // RestorationStep represents a single step in restoration process
-// Enhanced with comprehensive type support for different storage formats
 type RestorationStep struct {
 	Type    string // "zip", "lz4", "zstd", "bsdiff", "xdelta3", "smart_delta"
 	File    string
@@ -1005,11 +1002,10 @@ type RestorationStep struct {
 }
 
 // ============================================================================
-// UTILITY FUNCTIONS (ENHANCED FOR PERFORMANCE)
+// UTILITY FUNCTIONS
 // ============================================================================
 
-// parseInt64 safely parses string to int64 with error handling
-// Optimized for performance with direct character processing
+// parseInt64 safely parses string to int64
 func (rm *RestoreManager) parseInt64(s string) int64 {
 	result := int64(0)
 	for _, r := range s {
@@ -1023,7 +1019,6 @@ func (rm *RestoreManager) parseInt64(s string) int64 {
 }
 
 // parseCommitReference parses commit reference to version number
-// Supports multiple formats: "v1", "1", hash strings
 func (rm *RestoreManager) parseCommitReference(commitRef string) (int, error) {
 	// Handle "v1", "v2", etc. format
 	if strings.HasPrefix(commitRef, "v") {
@@ -1042,38 +1037,35 @@ func (rm *RestoreManager) parseCommitReference(commitRef string) (int, error) {
 }
 
 // getFileTypeIndicator returns visual indicator for file type
-// Provides consistent file type representation across restoration output
 func (rm *RestoreManager) getFileTypeIndicator(filePath string) string {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
 	case ".ai":
-		return "[AI]" // Adobe Illustrator
+		return "[AI]"
 	case ".psd":
-		return "[PSD]" // Adobe Photoshop
+		return "[PSD]"
 	case ".sketch":
-		return "[SKETCH]" // Sketch App
+		return "[SKETCH]"
 	case ".fig":
-		return "[FIG]" // Figma
+		return "[FIG]"
 	case ".xd":
-		return "[XD]" // Adobe XD
+		return "[XD]"
 	case ".blend":
-		return "[BLEND]" // Blender
+		return "[BLEND]"
 	case ".c4d":
-		return "[C4D]" // Cinema 4D
+		return "[C4D]"
 	default:
-		return "[FILE]" // Generic file
+		return "[FILE]"
 	}
 }
 
 // fileExists checks if a file exists on the filesystem
-// Simple utility function used throughout cache and restoration operations
 func (rm *RestoreManager) fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
 }
 
-// copyFile copies a file from source to destination with error handling
-// Used for file operations during restoration processes
+// copyFile copies a file from source to destination
 func (rm *RestoreManager) copyFile(src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
@@ -1093,15 +1085,13 @@ func (rm *RestoreManager) copyFile(src, dst string) error {
 
 // ============================================================================
 // EXISTING FUNCTIONS (PRESERVED FOR COMPATIBILITY)
-// These functions maintain backward compatibility while leveraging fast improvements
 // ============================================================================
 
-// restoreFromZip restores from ZIP file with enhanced error handling
-// Enhanced existing logic with better performance and error reporting
+// restoreFromZip restores from ZIP file
 func (rm *RestoreManager) restoreFromZip(zipFileName string, filesToRestore []string, result *RestoreResult) (*RestoreResult, error) {
 	zipPath := filepath.Join(rm.ObjectsDir, zipFileName)
 
-	// Check if ZIP file exists before attempting extraction
+	// Check if ZIP file exists
 	if !rm.fileExists(zipPath) {
 		return result, fmt.Errorf("ZIP file not found: %s", zipFileName)
 	}
@@ -1109,8 +1099,7 @@ func (rm *RestoreManager) restoreFromZip(zipFileName string, filesToRestore []st
 	return rm.extractFilesFromZip(zipPath, filesToRestore, result)
 }
 
-// extractFilesFromZip extracts files from a ZIP archive efficiently
-// Enhanced from existing implementation with improved performance and error handling
+// extractFilesFromZip extracts files from a ZIP archive
 func (rm *RestoreManager) extractFilesFromZip(zipPath string, filesToRestore []string, result *RestoreResult) (*RestoreResult, error) {
 	// Open ZIP file for reading
 	r, err := zip.OpenReader(zipPath)
@@ -1119,13 +1108,13 @@ func (rm *RestoreManager) extractFilesFromZip(zipPath string, filesToRestore []s
 	}
 	defer r.Close()
 
-	// Get current working directory for file restoration
+	// Get current working directory
 	currentWorkDir, err := os.Getwd()
 	if err != nil {
 		return result, fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	// Normalize target file paths for consistent matching
+	// Normalize target file paths
 	normalizedTargets := make([]string, len(filesToRestore))
 	for i, target := range filesToRestore {
 		normalizedTargets[i] = filepath.Clean(strings.ReplaceAll(target, "\\", "/"))
@@ -1133,10 +1122,10 @@ func (rm *RestoreManager) extractFilesFromZip(zipPath string, filesToRestore []s
 
 	// Process each file in the ZIP archive
 	for _, f := range r.File {
-		// Normalize file path in ZIP for consistent comparison
+		// Normalize file path in ZIP
 		filePathInZip := strings.ReplaceAll(f.Name, "\\", "/")
 
-		// Check if this file should be restored based on user criteria
+		// Check if this file should be restored
 		if len(filesToRestore) > 0 {
 			if !rm.shouldRestoreFile(filePathInZip, normalizedTargets) {
 				result.SkippedFiles = append(result.SkippedFiles, filePathInZip)
@@ -1162,26 +1151,25 @@ func (rm *RestoreManager) extractFilesFromZip(zipPath string, filesToRestore []s
 	return result, nil
 }
 
-// shouldRestoreFile determines if a file should be restored based on target patterns
-// Enhanced pattern matching with multiple matching strategies for user convenience
+// shouldRestoreFile determines if a file should be restored
 func (rm *RestoreManager) shouldRestoreFile(filePathInZip string, normalizedTargets []string) bool {
 	for _, target := range normalizedTargets {
-		// Strategy 1: Exact file path match
+		// Exact file path match
 		if filePathInZip == target {
 			return true
 		}
 
-		// Strategy 2: Filename-only match (ignore directory path)
+		// Filename-only match
 		if filepath.Base(filePathInZip) == filepath.Base(target) {
 			return true
 		}
 
-		// Strategy 3: Directory match (target ends with "/")
+		// Directory match
 		if strings.HasSuffix(target, "/") && strings.HasPrefix(filePathInZip, target) {
 			return true
 		}
 
-		// Strategy 4: Partial path match for flexible restoration
+		// Partial path match
 		if strings.Contains(filePathInZip, strings.Trim(target, "/")) {
 			return true
 		}
@@ -1190,13 +1178,12 @@ func (rm *RestoreManager) shouldRestoreFile(filePathInZip string, normalizedTarg
 	return false
 }
 
-// restoreFile restores a single file from ZIP to working directory
-// Enhanced with better error handling and directory creation
+// restoreFile restores a single file from ZIP
 func (rm *RestoreManager) restoreFile(f *zip.File, filePathInZip, currentWorkDir string) error {
-	// Determine final target path for the restored file
+	// Determine final target path
 	targetPath := filepath.Join(currentWorkDir, filePathInZip)
 
-	// Create target directory structure if it doesn't exist
+	// Create target directory structure
 	if err := os.MkdirAll(filepath.Dir(targetPath), os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create directory for %s: %w", targetPath, err)
 	}
@@ -1223,56 +1210,35 @@ func (rm *RestoreManager) restoreFile(f *zip.File, filePathInZip, currentWorkDir
 	return nil
 }
 
-// applyBsdiffPatch applies a bsdiff patch to create new file version
-// Uses binarydist library for efficient binary difference application
+// applyBsdiffPatch applies a bsdiff patch
 func (rm *RestoreManager) applyBsdiffPatch(oldFile, patchFile, newFile string) error {
-	// Open old file for reading
+	// Open old file
 	old, err := os.Open(oldFile)
 	if err != nil {
 		return fmt.Errorf("failed to open old file: %w", err)
 	}
 	defer old.Close()
 
-	// Open patch file for reading
+	// Open patch file
 	patch, err := os.Open(patchFile)
 	if err != nil {
 		return fmt.Errorf("failed to open patch file: %w", err)
 	}
 	defer patch.Close()
 
-	// Create new file for writing
+	// Create new file
 	new, err := os.Create(newFile)
 	if err != nil {
 		return fmt.Errorf("failed to create new file: %w", err)
 	}
 	defer new.Close()
 
-	// Apply binary patch using binarydist library
+	// Apply binary patch
 	if err := binarydist.Patch(old, new, patch); err != nil {
 		return fmt.Errorf("binarydist patch failed: %w", err)
 	}
 
 	return nil
-}
-
-// extractFromZstd extracts files from Zstd cache with balanced performance
-func (rm *RestoreManager) extractFromZstd(zstdPath string, filesToRestore []string, result *RestoreResult) error {
-	// Open Zstd file for decompression
-	file, err := os.Open(zstdPath)
-	if err != nil {
-		return fmt.Errorf("failed to open Zstd file: %w", err)
-	}
-	defer file.Close()
-
-	// Create Zstd reader for efficient decompression
-	zstdReader, err := zstd.NewReader(file)
-	if err != nil {
-		return fmt.Errorf("failed to create Zstd reader: %w", err)
-	}
-	defer zstdReader.Close()
-
-	// Extract files from Zstd stream
-	return rm.extractFilesFromStream(zstdReader, filesToRestore, result, zstdPath)
 }
 
 // createFileFromStructuredData creates a file from structured LZ4/Zstd data
