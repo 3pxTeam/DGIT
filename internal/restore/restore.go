@@ -1048,7 +1048,7 @@ type RestorationStep struct {
 }
 
 // ============================================================================
-// UTILITY FUNCTIONS (ENHANCED FOR ULTRA-FAST PERFORMANCE)
+// UTILITY FUNCTIONS (ENHANCED FOR PERFORMANCE)
 // ============================================================================
 
 // parseInt64 safely parses string to int64 with error handling
