@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"dgit/internal/scanner" // 추가: 파일 확장자 검증 통합
+	"dgit/internal/scanner" // 파일 확장자 검증 통합
 
 	"github.com/pierrec/lz4/v4"
 )
@@ -23,7 +23,7 @@ const (
 	HashSampleSize = 64 * 1024         // 64KB
 )
 
-// StagedFile represents a file in the staging area with cache integration
+// StagedFile represents a file in the staging area with simplified storage integration
 type StagedFile struct {
 	Path         string    `json:"path"`
 	AbsolutePath string    `json:"absolute_path"`
@@ -32,9 +32,9 @@ type StagedFile struct {
 	ModTime      time.Time `json:"mod_time"`
 	AddedAt      time.Time `json:"added_at"`
 
-	// Cache integration fields
+	// Simplified storage integration fields
 	Hash          string        `json:"hash"`               // File hash for cache key
-	CacheLevel    string        `json:"cache_level"`        // hot/warm/cold
+	CacheLevel    string        `json:"cache_level"`        // "versions", "cache"
 	PreCompressed bool          `json:"pre_compressed"`     // LZ4 pre-compression status
 	Metadata      *FileMetadata `json:"metadata,omitempty"` // Pre-extracted metadata
 }
@@ -59,49 +59,48 @@ type AddResult struct {
 
 // CacheStats tracks cache performance
 type CacheStats struct {
-	HotCacheHits      int `json:"hot_cache_hits"`
-	WarmCacheHits     int `json:"warm_cache_hits"`
-	ColdCacheHits     int `json:"cold_cache_hits"`
+	VersionsHits      int `json:"versions_hits"`
+	CacheHits         int `json:"cache_hits"`
 	NewFiles          int `json:"new_files"`
 	PreCompressed     int `json:"pre_compressed"`
 	MetadataExtracted int `json:"metadata_extracted"`
 }
 
-// StagingArea manages the staging area for DGit
+// StagingArea manages the staging area for DGit with simplified storage
 type StagingArea struct {
 	DgitDir     string
 	StagingFile string
 	files       map[string]*StagedFile
 
-	// Cache directories
-	hotCacheDir  string
-	warmCacheDir string
-	coldCacheDir string
-	cacheStats   *CacheStats
+	// Simplified storage directories
+	versionsDir string // 메인 버전 저장소 (.dgit/versions/)
+	commitsDir  string // 커밋 메타데이터 (.dgit/commits/)
+	cacheDir    string // 단일 캐시 디렉토리 (.dgit/cache/)
+	cacheStats  *CacheStats
 }
 
-// NewStagingArea creates a new staging area manager with cache
+// NewStagingArea creates a new staging area manager with simplified storage
 func NewStagingArea(dgitDir string) *StagingArea {
 	stagingDir := filepath.Join(dgitDir, "staging")
 	os.MkdirAll(stagingDir, 0755)
 
-	// Initialize cache directories
-	hotCache := filepath.Join(dgitDir, "cache", "hot")
-	warmCache := filepath.Join(dgitDir, "cache", "warm")
-	coldCache := filepath.Join(dgitDir, "cache", "cold")
+	// Initialize simplified storage directories
+	versionsDir := filepath.Join(dgitDir, "versions")
+	commitsDir := filepath.Join(dgitDir, "commits")
+	cacheDir := filepath.Join(dgitDir, "cache")
 
-	os.MkdirAll(hotCache, 0755)
-	os.MkdirAll(warmCache, 0755)
-	os.MkdirAll(coldCache, 0755)
+	os.MkdirAll(versionsDir, 0755)
+	os.MkdirAll(commitsDir, 0755)
+	os.MkdirAll(cacheDir, 0755)
 
 	return &StagingArea{
-		DgitDir:      dgitDir,
-		StagingFile:  filepath.Join(stagingDir, "staged.json"),
-		files:        make(map[string]*StagedFile),
-		hotCacheDir:  hotCache,
-		warmCacheDir: warmCache,
-		coldCacheDir: coldCache,
-		cacheStats:   &CacheStats{},
+		DgitDir:     dgitDir,
+		StagingFile: filepath.Join(stagingDir, "staged.json"),
+		files:       make(map[string]*StagedFile),
+		versionsDir: versionsDir,
+		commitsDir:  commitsDir,
+		cacheDir:    cacheDir,
+		cacheStats:  &CacheStats{},
 	}
 }
 
@@ -190,7 +189,7 @@ func (s *StagingArea) AddFile(path string) error {
 	// Determine cache level based on file characteristics
 	cacheLevel := s.determineCacheLevel(absPath, fileInfo.Size())
 
-	// Create staged file entry with cache integration
+	// Create staged file entry with simplified storage integration
 	stagedFile := &StagedFile{
 		Path:          relPath,
 		AbsolutePath:  absPath,
@@ -211,7 +210,7 @@ func (s *StagingArea) AddFile(path string) error {
 	s.files[absPath] = stagedFile
 
 	processingTime := time.Since(startTime)
-	fmt.Printf("Added %s to %s cache (processed in %v)\n",
+	fmt.Printf("Added %s to %s (processed in %v)\n",
 		filepath.Base(path), cacheLevel, processingTime)
 
 	return nil
@@ -219,8 +218,8 @@ func (s *StagingArea) AddFile(path string) error {
 
 // preprocessFile performs preprocessing for commits
 func (s *StagingArea) preprocessFile(file *StagedFile) error {
-	// LZ4 Pre-compression for hot cache
-	if file.CacheLevel == "hot" {
+	// LZ4 Pre-compression for versions directory files
+	if file.CacheLevel == "versions" {
 		if err := s.createLZ4PrecompressedCache(file); err != nil {
 			return err
 		}
@@ -237,7 +236,7 @@ func (s *StagingArea) preprocessFile(file *StagedFile) error {
 		s.cacheStats.MetadataExtracted++
 	}
 
-	// Cache file in appropriate tier
+	// Cache file in appropriate storage tier
 	return s.cacheFileInTier(file)
 }
 
@@ -251,7 +250,7 @@ func (s *StagingArea) createLZ4PrecompressedCache(file *StagedFile) error {
 	defer srcFile.Close()
 
 	// Create cache file
-	cachePath := s.getCachePath(file.Hash, "hot")
+	cachePath := s.getCachePath(file.Hash, "versions")
 	cacheFile, err := os.Create(cachePath)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
@@ -373,43 +372,36 @@ func (s *StagingArea) extractSketchMetadata(path string, metadata *FileMetadata)
 func (s *StagingArea) cacheFileInTier(file *StagedFile) error {
 	cachePath := s.getCachePath(file.Hash, file.CacheLevel)
 
-	// For hot cache, file is already pre-compressed
-	if file.CacheLevel == "hot" && file.PreCompressed {
+	// For versions directory, file is already pre-compressed
+	if file.CacheLevel == "versions" && file.PreCompressed {
 		return nil
 	}
 
-	// For warm/cold cache, create symlink or copy as needed
+	// For cache directory, create symlink or copy as needed
 	return s.createCacheEntry(file.AbsolutePath, cachePath)
 }
 
 // determineCacheLevel determines cache level based on file characteristics
 func (s *StagingArea) determineCacheLevel(path string, size int64) string {
-	// Hot cache for small frequently-used files
+	// Versions directory for small frequently-used files
 	if size < SmallFileSize {
-		return "hot"
+		return "versions"
 	}
 
-	// Warm cache for medium files
-	if size < MediumFileSize {
-		return "warm"
-	}
-
-	// Cold cache for large files
-	return "cold"
+	// Cache directory for larger files
+	return "cache"
 }
 
 // getCachePath returns the cache path for a given hash and level
 func (s *StagingArea) getCachePath(hash, level string) string {
 	var cacheDir string
 	switch level {
-	case "hot":
-		cacheDir = s.hotCacheDir
-	case "warm":
-		cacheDir = s.warmCacheDir
-	case "cold":
-		cacheDir = s.coldCacheDir
+	case "versions":
+		cacheDir = s.versionsDir
+	case "cache":
+		cacheDir = s.cacheDir
 	default:
-		cacheDir = s.warmCacheDir
+		cacheDir = s.cacheDir
 	}
 
 	return filepath.Join(cacheDir, hash)
@@ -446,10 +438,8 @@ func (s *StagingArea) copyFile(src, dst string) error {
 // demoteCacheLevel demotes a file to a lower cache tier
 func (s *StagingArea) demoteCacheLevel(file *StagedFile) {
 	switch file.CacheLevel {
-	case "hot":
-		file.CacheLevel = "warm"
-	case "warm":
-		file.CacheLevel = "cold"
+	case "versions":
+		file.CacheLevel = "cache"
 	}
 }
 
@@ -470,7 +460,7 @@ func (s *StagingArea) generateFileHash(path string) (string, error) {
 			path, stat.Size(), stat.ModTime().Unix())))
 
 		// Adaptive hash strategy based on file size
-		if stat.Size() > LargeFileSize { // 100MB+ large files
+		if stat.Size() > LargeFileSize { // 500MB+ large files
 			// First 64KB + last 64KB + middle sample
 			buffer := make([]byte, HashSampleSize)
 
@@ -492,7 +482,7 @@ func (s *StagingArea) generateFileHash(path string) (string, error) {
 				hasher.Write(buffer[:n])
 			}
 
-		} else if stat.Size() > 10*1024*1024 { // 10MB~100MB medium files
+		} else if stat.Size() > 10*1024*1024 { // 10MB~500MB medium files
 			// First 32KB + last 32KB
 			buffer := make([]byte, 32*1024)
 
@@ -553,7 +543,7 @@ func (s *StagingArea) AddPattern(pattern string) (*AddResult, error) {
 	}
 
 	for _, match := range matches {
-		if scanner.IsDesignFile(match) { // 통합된 함수 사용
+		if scanner.IsDesignFile(match) {
 			if err := s.AddFile(match); err != nil {
 				result.FailedFiles[match] = err
 			} else {
@@ -592,7 +582,7 @@ func (s *StagingArea) addAllDesignFiles(dir string) (*AddResult, error) {
 			return nil
 		}
 
-		if !info.IsDir() && scanner.IsDesignFile(path) { // 통합된 함수 사용
+		if !info.IsDir() && scanner.IsDesignFile(path) {
 			if err := s.AddFile(path); err != nil {
 				result.FailedFiles[path] = err
 			} else {
