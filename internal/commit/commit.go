@@ -35,7 +35,7 @@ const (
 // DetailedLayer represents detailed layer information from photoshop package
 type DetailedLayer = photoshop.DetailedLayer
 
-// CompressionResult containsdetailed compression operation metrics
+// CompressionResult contains detailed compression operation metrics
 type CompressionResult struct {
 	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
 	OutputFile       string    `json:"output_file"`
@@ -282,7 +282,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 	}
 	defer outFile.Close()
 
-	// LZ4 compression with level 1 for maximum speed
+	// LZ4 compression with level 1 for speed
 	lz4Writer := lz4.NewWriter(outFile)
 	defer lz4Writer.Close()
 
@@ -309,7 +309,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 			actualSize := int64(len(fileContent))
 			originalSize += actualSize
 
-			// ✅ 수정: Write structured file header for identification during extraction
+			// Write structured file header for identification during extraction
 			header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
 			_, err = lz4Writer.Write([]byte(header))
 			if err != nil {
@@ -317,7 +317,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 				return
 			}
 
-			// ✅ 수정: Write file content through LZ4 (restore.go에서 예상하는 형식)
+			// Write file content through LZ4
 			_, err = lz4Writer.Write(fileContent)
 			if err != nil {
 				fmt.Printf("Warning: failed to compress %s: %v\n", file.Path, err)
@@ -338,7 +338,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 	compressedSize := fileInfo.Size()
 	compressionTime := float64(time.Since(compressionStartTime).Nanoseconds()) / 1000000.0
 
-	// 수정된 압축 검증 로직: 파일이 원본의 120%를 초과할 경우에만 오류
+	// Compression validation: file should not become significantly larger
 	if originalSize == 0 {
 		os.Remove(versionPath)
 		return nil, fmt.Errorf("no data to compress")
@@ -374,6 +374,8 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 		CreatedAt:        time.Now(),
 	}, nil
 }
+
+// Background optimization system for improved compression ratios
 
 // createBsdiffDelta creates binary diff delta compression
 func (cm *CommitManager) createBsdiffDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
@@ -596,7 +598,7 @@ func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath 
 
 // Performance display and logging functions
 
-// displayCompressionStats showsdetailed performance metrics
+// displayCompressionStats shows detailed performance metrics
 func (cm *CommitManager) displayCompressionStats(result *CompressionResult, totalTime time.Duration) {
 	compressionPercent := (1 - result.CompressionRatio) * 100
 	totalTimeMs := float64(totalTime.Nanoseconds()) / 1000000.0
