@@ -14,7 +14,7 @@ import (
 // CompressionResult contains comprehensive compression operation results
 // Enhanced with performance metrics
 type CompressionResult struct {
-	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart_delta"
+	Strategy         string    `json:"strategy"` // "lz4", "zip", "bsdiff", "xdelta3", "psd_smart"
 	OutputFile       string    `json:"output_file"`
 	OriginalSize     int64     `json:"original_size"`
 	CompressedSize   int64     `json:"compressed_size"`
@@ -24,7 +24,7 @@ type CompressionResult struct {
 
 	// Performance Metrics - Core data for speed improvement tracking
 	CompressionTime  float64 `json:"compression_time_ms"` // Milliseconds - KEY METRIC for performance analysis
-	CacheLevel       string  `json:"cache_level"`         // "hot", "warm", "cold" - cache tier utilization
+	CacheLevel       string  `json:"cache_level"`         // "versions", "cache" - cache tier utilization
 	SpeedImprovement float64 `json:"speed_improvement"`   // Multiplier vs traditional methods
 }
 
@@ -45,42 +45,42 @@ type Commit struct {
 	CompressionInfo *CompressionResult `json:"compression_info,omitempty"` // Compression metrics and data
 }
 
-// LogManager handles commit history operations with cache integration
-// Enhanced to work seamlessly with 3-tier cache system for optimal performance
+// LogManager handles commit history operations with simplified storage system
+// Updated to work with simplified 2-tier storage system for optimal performance
 type LogManager struct {
 	DgitDir    string
 	ObjectsDir string
-	// Cache Integration for rapid log operations
-	HotCacheDir  string // LZ4 cache directory for instant access
-	WarmCacheDir string // Zstd cache directory for balanced performance
-	ColdCacheDir string // Archive cache directory for long-term storage
+	// Simplified Storage System Integration
+	VersionsDir string // 메인 버전 저장소 (.dgit/versions/)
+	CommitsDir  string // 커밋 메타데이터 (.dgit/commits/)
+	CacheDir    string // 단일 캐시 디렉토리 (.dgit/cache/)
 }
 
-// NewLogManager creates a new log manager with cache awareness
-// Initializes with full 3-tier cache system integration for optimal performance
+// NewLogManager creates a new log manager with simplified storage system
+// Initializes with simplified 2-tier storage system integration for optimal performance
 func NewLogManager(dgitDir string) *LogManager {
 	return &LogManager{
-		DgitDir:      dgitDir,
-		ObjectsDir:   filepath.Join(dgitDir, "objects"),
-		HotCacheDir:  filepath.Join(dgitDir, "cache", "hot"),
-		WarmCacheDir: filepath.Join(dgitDir, "cache", "warm"),
-		ColdCacheDir: filepath.Join(dgitDir, "cache", "cold"),
+		DgitDir:     dgitDir,
+		ObjectsDir:  filepath.Join(dgitDir, "objects"),
+		VersionsDir: filepath.Join(dgitDir, "versions"),
+		CommitsDir:  filepath.Join(dgitDir, "commits"),
+		CacheDir:    filepath.Join(dgitDir, "cache"),
 	}
 }
 
 // GetCommitHistory returns complete commit history sorted by timestamp (newest first)
 // Efficiently loads all commits with compression information
 func (lm *LogManager) GetCommitHistory() ([]*Commit, error) {
-	entries, err := os.ReadDir(lm.ObjectsDir)
+	entries, err := os.ReadDir(lm.CommitsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read objects directory: %w", err)
+		return nil, fmt.Errorf("failed to read commits directory: %w", err)
 	}
 
 	var commits []*Commit
 	// Process all commit metadata files
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), "v") && strings.HasSuffix(entry.Name(), ".json") {
-			commitPath := filepath.Join(lm.ObjectsDir, entry.Name())
+			commitPath := filepath.Join(lm.CommitsDir, entry.Name())
 			commit, err := lm.loadCommit(commitPath)
 			if err != nil {
 				// Skip failed commits but continue processing others
@@ -101,22 +101,22 @@ func (lm *LogManager) GetCommitHistory() ([]*Commit, error) {
 // GetCommit returns a specific commit by version number
 // Efficiently loads individual commit with all metadata
 func (lm *LogManager) GetCommit(version int) (*Commit, error) {
-	commitPath := filepath.Join(lm.ObjectsDir, fmt.Sprintf("v%d.json", version))
+	commitPath := filepath.Join(lm.CommitsDir, fmt.Sprintf("v%d.json", version))
 	return lm.loadCommit(commitPath)
 }
 
 // GetCommitByHash retrieves a commit by its full or short hash
 // Supports partial hash matching for user convenience
 func (lm *LogManager) GetCommitByHash(hash string) (*Commit, error) {
-	entries, err := os.ReadDir(lm.ObjectsDir)
+	entries, err := os.ReadDir(lm.CommitsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read objects directory: %w", err)
+		return nil, fmt.Errorf("failed to read commits directory: %w", err)
 	}
 
 	// Search through all commit files for hash match
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), "v") && strings.HasSuffix(entry.Name(), ".json") {
-			commitPath := filepath.Join(lm.ObjectsDir, entry.Name())
+			commitPath := filepath.Join(lm.CommitsDir, entry.Name())
 			commit, err := lm.loadCommit(commitPath)
 			if err != nil {
 				continue
@@ -133,7 +133,7 @@ func (lm *LogManager) GetCommitByHash(hash string) (*Commit, error) {
 // GetCurrentVersion returns the current version number by scanning metadata files
 // Efficiently determines the latest version for next commit numbering
 func (lm *LogManager) GetCurrentVersion() int {
-	entries, err := os.ReadDir(lm.ObjectsDir)
+	entries, err := os.ReadDir(lm.CommitsDir)
 	if err != nil {
 		return 0
 	}
@@ -152,7 +152,7 @@ func (lm *LogManager) GetCurrentVersion() int {
 	return maxVersion
 }
 
-// GenerateCommitSummary generates comprehensive human-readable summary with metrics
+// GenerateCommitSummary generates human-readable summary with metrics
 // Enhanced to include performance information and cache utilization data
 func (lm *LogManager) GenerateCommitSummary(commit *Commit) string {
 	summary := fmt.Sprintf("[v%d] %s", commit.Version, commit.Message)
@@ -167,7 +167,7 @@ func (lm *LogManager) GenerateCommitSummary(commit *Commit) string {
 		switch commit.CompressionInfo.Strategy {
 		case "lz4":
 			summary += fmt.Sprintf(" • LZ4: %.1f%% (%.1fms)", compressionPercent, commit.CompressionInfo.CompressionTime)
-		case "psd_smart_delta":
+		case "psd_smart":
 			summary += fmt.Sprintf(" • Smart PSD: %.1f%% saved", compressionPercent)
 		case "design_smart_delta":
 			summary += fmt.Sprintf(" • Smart Design: %.1f%% compressed", compressionPercent)
@@ -181,7 +181,7 @@ func (lm *LogManager) GenerateCommitSummary(commit *Commit) string {
 
 		// Add cache level information for performance context
 		if commit.CompressionInfo.CacheLevel != "" {
-			summary += fmt.Sprintf(" (%s cache)", commit.CompressionInfo.CacheLevel)
+			summary += fmt.Sprintf(" (%s)", commit.CompressionInfo.CacheLevel)
 		}
 	}
 
@@ -203,7 +203,7 @@ func (lm *LogManager) GenerateCommitSummary(commit *Commit) string {
 	return summary
 }
 
-// GetCompressionStatistics returns comprehensive compression analytics
+// GetCompressionStatistics returns compression analytics
 // Provides detailed performance metrics across all commits for optimization insights
 func (lm *LogManager) GetCompressionStatistics() (*CompressionStatistics, error) {
 	commits, err := lm.GetCommitHistory()
@@ -226,7 +226,7 @@ func (lm *LogManager) GetCompressionStatistics() (*CompressionStatistics, error)
 	var totalSpeedImprovement float64
 	compressedCount := 0
 
-	// Analyze each commit for comprehensive statistics
+	// Analyze each commit for statistics
 	for _, commit := range commits {
 		if commit.CompressionInfo != nil {
 			// Track compressed commits with detailed metrics
@@ -268,7 +268,7 @@ func (lm *LogManager) GetCompressionStatistics() (*CompressionStatistics, error)
 	return stats, nil
 }
 
-// CompressionStatistics represents comprehensive repository performance analytics
+// CompressionStatistics represents repository performance analytics
 // Provides insights into compression system utilization and efficiency
 type CompressionStatistics struct {
 	TotalCommits          int            `json:"total_commits"`
@@ -295,12 +295,12 @@ func (lm *LogManager) GetCommitStorageInfo(commit *Commit) string {
 	// Compression system with detailed performance metrics
 	switch commit.CompressionInfo.Strategy {
 	case "lz4":
-		return fmt.Sprintf("LZ4 Fast: %s (%.2f MB, %s cache, %.1fms)",
+		return fmt.Sprintf("LZ4: %s (%.2f MB, %s, %.1fms)",
 			commit.CompressionInfo.OutputFile,
 			float64(commit.CompressionInfo.CompressedSize)/(1024*1024),
 			commit.CompressionInfo.CacheLevel,
 			commit.CompressionInfo.CompressionTime)
-	case "psd_smart_delta":
+	case "psd_smart":
 		return fmt.Sprintf("Smart PSD Delta: %s (%.2f KB, base: v%d, %.1fms)",
 			commit.CompressionInfo.OutputFile,
 			float64(commit.CompressionInfo.CompressedSize)/1024,
@@ -330,7 +330,7 @@ func (lm *LogManager) GetCommitStorageInfo(commit *Commit) string {
 	}
 }
 
-// GetCommitEfficiency returns comprehensive compression efficiency information
+// GetCommitEfficiency returns compression efficiency information
 // Enhanced with performance metrics and speed improvements
 func (lm *LogManager) GetCommitEfficiency(commit *Commit) string {
 	if commit.CompressionInfo == nil {
@@ -347,7 +347,7 @@ func (lm *LogManager) GetCommitEfficiency(commit *Commit) string {
 			speedInfo = fmt.Sprintf(" (%.1fx faster)", commit.CompressionInfo.SpeedImprovement)
 		}
 		return fmt.Sprintf("%.1f%% compression%s", compressionPercent, speedInfo)
-	case "psd_smart_delta":
+	case "psd_smart":
 		return fmt.Sprintf("%.1f%% space saving (smart delta)", compressionPercent)
 	case "design_smart_delta":
 		return fmt.Sprintf("%.1f%% compression (smart)", compressionPercent)
@@ -361,7 +361,7 @@ func (lm *LogManager) GetCommitEfficiency(commit *Commit) string {
 }
 
 // FindCommitsByStorageType finds commits using specific storage strategies
-// Enhanced for compression system with comprehensive strategy filtering
+// Enhanced for compression system with strategy filtering
 func (lm *LogManager) FindCommitsByStorageType(storageType string) ([]*Commit, error) {
 	allCommits, err := lm.GetCommitHistory()
 	if err != nil {
@@ -379,22 +379,22 @@ func (lm *LogManager) FindCommitsByStorageType(storageType string) ([]*Commit, e
 				filteredCommits = append(filteredCommits, commit)
 			}
 		case "fast":
-			// Any fast compression strategy
+			// Fast compression strategies
 			if commit.CompressionInfo != nil &&
 				(commit.CompressionInfo.Strategy == "lz4" ||
-					commit.CompressionInfo.Strategy == "psd_smart_delta" ||
+					commit.CompressionInfo.Strategy == "psd_smart" ||
 					commit.CompressionInfo.Strategy == "design_smart_delta") {
 				filteredCommits = append(filteredCommits, commit)
 			}
 		case "lz4":
-			// Specifically LZ4 fast compression
+			// LZ4 compression
 			if commit.CompressionInfo != nil && commit.CompressionInfo.Strategy == "lz4" {
 				filteredCommits = append(filteredCommits, commit)
 			}
 		case "smart_delta":
 			// Smart delta compression strategies
 			if commit.CompressionInfo != nil &&
-				(commit.CompressionInfo.Strategy == "psd_smart_delta" ||
+				(commit.CompressionInfo.Strategy == "psd_smart" ||
 					commit.CompressionInfo.Strategy == "design_smart_delta") {
 				filteredCommits = append(filteredCommits, commit)
 			}
@@ -419,15 +419,14 @@ func (lm *LogManager) FindCommitsByStorageType(storageType string) ([]*Commit, e
 }
 
 // GetRepositorySizeBreakdown returns detailed size breakdown with cache information
-// Enhanced with 3-tier cache system analysis for comprehensive storage insights
+// Enhanced with simplified 2-tier storage system analysis
 func (lm *LogManager) GetRepositorySizeBreakdown() (*SizeBreakdown, error) {
 	breakdown := &SizeBreakdown{
 		ZipFiles:   0,
 		DeltaFiles: 0,
 		Metadata:   0,
-		HotCache:   0,
-		WarmCache:  0,
-		ColdCache:  0,
+		Versions:   0,
+		Cache:      0,
 		Total:      0,
 	}
 
@@ -456,21 +455,20 @@ func (lm *LogManager) GetRepositorySizeBreakdown() (*SizeBreakdown, error) {
 		return breakdown, err
 	}
 
-	// Calculate cache sizes for comprehensive analysis
-	lm.calculateCacheSize(lm.HotCacheDir, &breakdown.HotCache)
-	lm.calculateCacheSize(lm.WarmCacheDir, &breakdown.WarmCache)
-	lm.calculateCacheSize(lm.ColdCacheDir, &breakdown.ColdCache)
+	// Calculate simplified storage sizes
+	lm.calculateDirectorySize(lm.VersionsDir, &breakdown.Versions)
+	lm.calculateDirectorySize(lm.CacheDir, &breakdown.Cache)
 
-	// Include cache sizes in total for complete picture
-	breakdown.Total += breakdown.HotCache + breakdown.WarmCache + breakdown.ColdCache
+	// Include storage sizes in total for complete picture
+	breakdown.Total += breakdown.Versions + breakdown.Cache
 
 	return breakdown, nil
 }
 
-// calculateCacheSize calculates total size of a cache directory recursively
-// Helper function for comprehensive cache utilization analysis
-func (lm *LogManager) calculateCacheSize(cacheDir string, size *int64) {
-	filepath.Walk(cacheDir, func(path string, info os.FileInfo, err error) error {
+// calculateDirectorySize calculates total size of a directory recursively
+// Helper function for storage utilization analysis
+func (lm *LogManager) calculateDirectorySize(dir string, size *int64) {
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			*size += info.Size()
 		}
@@ -478,20 +476,19 @@ func (lm *LogManager) calculateCacheSize(cacheDir string, size *int64) {
 	})
 }
 
-// SizeBreakdown represents comprehensive repository size analysis
-// Enhanced with cache information for complete storage visibility
+// SizeBreakdown represents repository size analysis
+// Enhanced with simplified storage information for complete storage visibility
 type SizeBreakdown struct {
 	ZipFiles   int64 `json:"zip_files"`   // Traditional ZIP snapshots
 	DeltaFiles int64 `json:"delta_files"` // Delta compression files
 	Metadata   int64 `json:"metadata"`    // Commit metadata JSON files
-	HotCache   int64 `json:"hot_cache"`   // LZ4 hot cache for instant access
-	WarmCache  int64 `json:"warm_cache"`  // Zstd warm cache for balanced performance
-	ColdCache  int64 `json:"cold_cache"`  // Archive cold cache for long-term storage
-	Total      int64 `json:"total"`       // Total repository size including all caches
+	Versions   int64 `json:"versions"`    // Versions directory (.dgit/versions/)
+	Cache      int64 `json:"cache"`       // Cache directory (.dgit/cache/)
+	Total      int64 `json:"total"`       // Total repository size including all storage
 }
 
-// GetCacheUtilization returns comprehensive cache utilization statistics
-// Provides insights into 3-tier cache system performance and efficiency
+// GetCacheUtilization returns cache utilization statistics
+// Provides insights into simplified storage system performance and efficiency
 func (lm *LogManager) GetCacheUtilization() (*CacheUtilization, error) {
 	commits, err := lm.GetCommitHistory()
 	if err != nil {
@@ -499,9 +496,8 @@ func (lm *LogManager) GetCacheUtilization() (*CacheUtilization, error) {
 	}
 
 	utilization := &CacheUtilization{
-		HotCacheFiles:  0,
-		WarmCacheFiles: 0,
-		ColdCacheFiles: 0,
+		VersionsFiles:  0,
+		CacheFiles:     0,
 		TotalCacheSize: 0,
 	}
 
@@ -510,12 +506,10 @@ func (lm *LogManager) GetCacheUtilization() (*CacheUtilization, error) {
 		if commit.CompressionInfo != nil {
 			// Track cache tier utilization for optimization insights
 			switch commit.CompressionInfo.CacheLevel {
-			case "hot":
-				utilization.HotCacheFiles++
-			case "warm":
-				utilization.WarmCacheFiles++
-			case "cold":
-				utilization.ColdCacheFiles++
+			case "versions":
+				utilization.VersionsFiles++
+			case "cache":
+				utilization.CacheFiles++
 			}
 			utilization.TotalCacheSize += commit.CompressionInfo.CompressedSize
 		}
@@ -525,11 +519,10 @@ func (lm *LogManager) GetCacheUtilization() (*CacheUtilization, error) {
 }
 
 // CacheUtilization represents detailed cache usage statistics
-// Provides insights for optimizing 3-tier cache system performance
+// Provides insights for optimizing simplified storage system performance
 type CacheUtilization struct {
-	HotCacheFiles  int   `json:"hot_cache_files"`  // Files in hot cache (LZ4)
-	WarmCacheFiles int   `json:"warm_cache_files"` // Files in warm cache (Zstd)
-	ColdCacheFiles int   `json:"cold_cache_files"` // Files in cold cache (Archive)
+	VersionsFiles  int   `json:"versions_files"`   // Files in versions directory
+	CacheFiles     int   `json:"cache_files"`      // Files in cache directory
 	TotalCacheSize int64 `json:"total_cache_size"` // Total cached data size
 }
 
