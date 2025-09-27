@@ -30,31 +30,31 @@ type RepositoryConfig struct {
 	// Compression System Configuration
 	Compression CompressionConfig `json:"compression"`
 
-	// Performance Monitoring and Optimization Settings
+	// Performance Monitoring Settings
 	Performance PerformanceConfig `json:"performance"`
 }
 
-// CompressionConfig represents compression settings
+// CompressionConfig represents simplified compression settings
 type CompressionConfig struct {
-	// Stage 1: Response Cache (LZ4)
+	// LZ4 Fast Compression
 	LZ4Config LZ4StageConfig `json:"lz4_stage"`
 
-	// Stage 2: Background Cache (Zstd)
+	// Background Optimization (Optional)
 	ZstdConfig ZstdStageConfig `json:"zstd_stage"`
 
-	// Stage 3: Long-term Storage (Zstd High)
+	// Long-term Storage (Optional)
 	ArchiveConfig ArchiveStageConfig `json:"archive_stage"`
 
 	// Cache Management Settings
 	CacheConfig SmartCacheConfig `json:"cache"`
 }
 
-// LZ4StageConfig configures commit performance
+// LZ4StageConfig configures fast compression
 type LZ4StageConfig struct {
-	Enabled          bool  `json:"enabled"`           // Enable LZ4 commits
+	Enabled          bool  `json:"enabled"`           // Enable LZ4 compression
 	MaxFileSize      int64 `json:"max_file_size"`     // Max file size for LZ4 (bytes)
 	CompressionLevel int   `json:"compression_level"` // LZ4 compression level (1-9)
-	CacheRetention   int   `json:"cache_retention"`   // Hours to keep in hot cache
+	CacheRetention   int   `json:"cache_retention"`   // Hours to keep in cache
 }
 
 // ZstdStageConfig configures background optimization
@@ -76,10 +76,9 @@ type ArchiveStageConfig struct {
 
 // SmartCacheConfig configures cache management
 type SmartCacheConfig struct {
-	HotCacheSize    int64  `json:"hot_cache_size"`    // Max hot cache size (MB)
-	WarmCacheSize   int64  `json:"warm_cache_size"`   // Max warm cache size (MB)
-	ColdStorageSize int64  `json:"cold_storage_size"` // Max cold storage size (MB)
-	AccessThreshold int    `json:"access_threshold"`  // Accesses needed to promote to hot
+	MainCacheSize   int64  `json:"main_cache_size"`   // Max main cache size (MB)
+	BackupCacheSize int64  `json:"backup_cache_size"` // Max backup cache size (MB)
+	AccessThreshold int    `json:"access_threshold"`  // Accesses needed to promote cache
 	EvictionPolicy  string `json:"eviction_policy"`   // "LRU", "LFU", "FIFO"
 }
 
@@ -126,26 +125,22 @@ func (ri *RepositoryInitializer) createStructure(dgitPath string) error {
 
 	// Simplified Structure
 	subdirs := []string{
-		// Version Storage (통합 저장)
-		"versions",
+		// Main Storage Directories
+		"versions",       // Primary version storage
+		"commits",        // Commit metadata
+		"cache",          // Single cache directory
+		"cache/temp",     // Temporary compression files
+		"cache/metadata", // Cache metadata
 
-		// Commit Metadata (메타데이터 전용)
-		"commits",
-
-		// Single Cache Directory (단일 캐시)
-		"cache",
-		"cache/temp",     // 임시 압축 파일
-		"cache/metadata", // 캐시 메타데이터
-
-		// Active Working Areas
+		// Working Areas
 		"staging",
 
 		// System Directories
-		"temp",  // 임시 작업 공간
-		"refs",  // 참조 정보
-		"hooks", // 훅 스크립트
+		"temp",  // Temporary workspace
+		"refs",  // Reference information
+		"hooks", // Hook scripts
 
-		// Performance Monitoring (간소화)
+		// Performance Monitoring
 		"logs",
 		"metrics",
 	}
@@ -198,7 +193,7 @@ func (ri *RepositoryInitializer) createConfig(dgitPath string) error {
 
 		// Simplified Compression Configuration
 		Compression: CompressionConfig{
-			// LZ4 Fast Compression (단일 압축 방식)
+			// LZ4 Fast Compression (single compression method)
 			LZ4Config: LZ4StageConfig{
 				Enabled:          true,
 				MaxFileSize:      500 * 1024 * 1024, // 500MB max
@@ -206,29 +201,28 @@ func (ri *RepositoryInitializer) createConfig(dgitPath string) error {
 				CacheRetention:   24,                // Keep 24 hours
 			},
 
-			// Simplified Background Optimization
+			// Background Optimization (Disabled for simplicity)
 			ZstdConfig: ZstdStageConfig{
-				Enabled:          false, // 단순화를 위해 비활성화
+				Enabled:          false,
 				CompressionLevel: 3,
-				OptimizeInterval: 60,  // 1시간마다
-				MinIdleTime:      300, // 5분 대기
+				OptimizeInterval: 60,  // 1 hour
+				MinIdleTime:      300, // 5 minutes wait
 				CompressionRatio: 0.4,
 			},
 
-			// Archive (필요시에만)
+			// Archive (Disabled for simplicity)
 			ArchiveConfig: ArchiveStageConfig{
-				Enabled:          false, // 단순화를 위해 비활성화
+				Enabled:          false,
 				CompressionLevel: 22,
-				ArchiveAfterDays: 90,                     // 3개월 후
+				ArchiveAfterDays: 90,                     // 3 months later
 				MaxArchiveSize:   5 * 1024 * 1024 * 1024, // 5GB
 			},
 
 			// Simplified Cache Configuration
 			CacheConfig: SmartCacheConfig{
-				HotCacheSize:    1 * 1024, // 1GB 단일 캐시
-				WarmCacheSize:   0,        // 사용 안함
-				ColdStorageSize: 0,        // 사용 안함
-				AccessThreshold: 1,        // 즉시 캐시
+				MainCacheSize:   1 * 1024, // 1GB single cache
+				BackupCacheSize: 0,        // Not used
+				AccessThreshold: 1,        // Immediate cache
 				EvictionPolicy:  "LRU",
 			},
 		},
@@ -237,8 +231,8 @@ func (ri *RepositoryInitializer) createConfig(dgitPath string) error {
 		Performance: PerformanceConfig{
 			EnableMetrics:      true,
 			LogCompressionTime: true,
-			LogCacheHits:       false, // 단순화
-			StatsRetentionDays: 30,    // 1개월
+			LogCacheHits:       false, // Simplified
+			StatsRetentionDays: 30,    // 1 month
 		},
 	}
 
@@ -263,10 +257,9 @@ func (ri *RepositoryInitializer) createPerformanceMonitoring(dgitPath string) er
 		"total_commits": 0,
 		"total_files":   0,
 		"cache_stats": map[string]int{
-			"hot_hits":  0, // Hot cache hits
-			"warm_hits": 0, // Warm cache hits
-			"cold_hits": 0, // Cold cache hits
-			"misses":    0, // Cache misses
+			"versions_hits": 0, // Versions directory hits
+			"cache_hits":    0, // Cache directory hits
+			"misses":        0, // Cache misses
 		},
 		"compression_stats": map[string]float64{
 			"avg_lz4_time":          0.0, // Average LZ4 compression time
@@ -323,8 +316,9 @@ func IsDGitRepository(path string) bool {
 		return false
 	}
 
-	cacheHotPath := filepath.Join(dgitPath, "cache", "hot")
-	if info, err := os.Stat(cacheHotPath); err != nil || !info.IsDir() {
+	// Check for essential directories in new structure
+	versionsPath := filepath.Join(dgitPath, "versions")
+	if info, err := os.Stat(versionsPath); err != nil || !info.IsDir() {
 		return false
 	}
 
