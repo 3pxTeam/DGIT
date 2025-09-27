@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
 async function initializeApp() {
     try {
         // 프로그레스바
-        // eslint-disable-next-line no-undef
         showStepProgress('splashScreen', 1, 3, ['설정 로드', '프로젝트 확인', '완료']);
 
         // 설정 로드
@@ -48,7 +47,7 @@ function setupTerminalResizer() {
 
     const doResize = (e) => {
         if (!isResizing) return;
-        
+
         // 새로운 높이 계산
         newHeight = startHeight - (e.clientY - startY);
 
@@ -66,7 +65,7 @@ function setupTerminalResizer() {
             animationFrameId = null;
         });
     };
-    
+
     const stopResize = () => {
         isResizing = false;
         document.body.style.cursor = '';
@@ -82,7 +81,7 @@ function setupTerminalResizer() {
         isResizing = true;
         document.body.style.cursor = 'ns-resize';
         e.preventDefault();
-        
+
         startY = e.clientY;
         startHeight = terminalPanel.clientHeight;
 
@@ -259,13 +258,13 @@ async function showRecentProjects() {
             const tooltip = project.path || '';
             // SVG 아이콘 매핑
             const ext = project.path ? project.path.split('.').pop().toLowerCase() : '';
-            let iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="16" y="4" rx="4" fill="#3386F6"/><rect width="10" height="6" x="2" y="2" rx="2" fill="#7EC8E3"/></svg>`; // 파란 폴더
-            if (["psd"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#0071C5"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">PSD</text></svg>`;
-            else if (["ai"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#FF9A00"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">Ai</text></svg>`;
-            else if (["figma"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5" fill="#0acf83"/><circle cx="12" cy="17" r="5" fill="#a259ff" fill-opacity="0.7"/></svg>`;
-            else if (["sketch"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,3 2,9 12,21 22,9" fill="#f7c800"/></svg>`;
-            else if (["xd"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#a259ff"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">XD</text></svg>`;
-            else if (["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#eee"/><circle cx="8" cy="8" r="3" fill="#0acf83"/><rect x="4" y="14" width="16" height="6" fill="#f7c800"/></svg>`;
+            let iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="16" y="4" rx="4" fill="#3386F6"/><rect width="10" height="6" x="2" y="2" rx="2" fill="#7EC8E3"/></svg>'; // 파란 폴더
+            if (['psd'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#0071C5"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">PSD</text></svg>';
+            else if (['ai'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#FF9A00"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">Ai</text></svg>';
+            else if (['figma'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5" fill="#0acf83"/><circle cx="12" cy="17" r="5" fill="#a259ff" fill-opacity="0.7"/></svg>';
+            else if (['sketch'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,3 2,9 12,21 22,9" fill="#f7c800"/></svg>';
+            else if (['xd'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#a259ff"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">XD</text></svg>';
+            else if (['png','jpg','jpeg','webp','bmp','gif'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#eee"/><circle cx="8" cy="8" r="3" fill="#0acf83"/><rect x="4" y="14" width="16" height="6" fill="#f7c800"/></svg>';
             return `
                 <div class="file-item" onclick="openRecentProject('${project.path}', '${project.name}')" title="${tooltip}">
                     <div class="file-thumbnail">${iconSVG}</div>
