@@ -371,9 +371,6 @@ class DGitIntegration {
         if (options.oneline) {
             args.push('--oneline');
         }
-        if (options.graph) {
-            args.push('--graph');
-        }
         if (options.format) {
             args.push(`--pretty=${options.format}`);
         }
@@ -385,56 +382,6 @@ class DGitIntegration {
         }
 
         return this.executeCommand('log', args, projectPath);
-    }
-
-    /**
-     * 브랜치 관련 작업
-     */
-    async branch(projectPath, action = 'list', branchName = null, options = {}) {
-        const args = [];
-
-        switch (action) {
-            case 'list':
-                if (options.all) args.push('-a');
-                if (options.remote) args.push('-r');
-                break;
-
-            case 'create':
-                if (!branchName) throw new Error('Branch name is required for create action');
-                args.push(branchName);
-                if (options.checkout) args.unshift('-b');
-                break;
-
-            case 'delete':
-                if (!branchName) throw new Error('Branch name is required for delete action');
-                args.push('-d', branchName);
-                if (options.force) args[0] = '-D';
-                break;
-
-            case 'rename':
-                args.push('-m');
-                if (options.oldName) args.push(options.oldName);
-                if (branchName) args.push(branchName);
-                break;
-        }
-
-        return this.executeCommand('branch', args, projectPath);
-    }
-
-    /**
-     * 브랜치 전환
-     */
-    async checkout(projectPath, target, options = {}) {
-        const args = [target];
-
-        if (options.createBranch) {
-            args.unshift('-b');
-        }
-        if (options.force) {
-            args.unshift('-f');
-        }
-
-        return this.executeCommand('checkout', args, projectPath);
     }
 
     /**
@@ -531,18 +478,6 @@ class DGitIntegration {
         } catch (error) {
             console.log(`[DGit] Repository check failed for ${projectPath}:`, error.message);
             return false;
-        }
-    }
-
-    /**
-     * 현재 브랜치 이름 가져오기
-     */
-    async getCurrentBranch(projectPath) {
-        try {
-            const result = await this.executeCommand('branch', ['--show-current'], projectPath);
-            return result.output.trim();
-        } catch (error) {
-            return 'main'; // 기본값
         }
     }
 

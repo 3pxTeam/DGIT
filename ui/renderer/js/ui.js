@@ -427,10 +427,6 @@ function showProgressBar(container, progress = 0, message = '', animated = true)
                 <div class="enhanced-progress-percentage">${progress}%</div>
             </div>
             <div class="enhanced-progress-bar-wrapper">
-                <div class="progress-message">${message}</div>
-                <div class="progress-percentage">${progress}%</div>
-            </div>
-            <div class="progress-bar-wrapper">
                 <div class="progress-bar">
                     <div class="progress-fill ${animated ? 'animated' : ''}" 
                          style="width: ${progress}%;"

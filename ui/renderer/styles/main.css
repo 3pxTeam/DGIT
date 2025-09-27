@@ -56,6 +56,11 @@ body {
     padding: 40px;
     text-align: center;
     background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    -webkit-app-region: drag;
+}
+
+.home-screen .home-buttons {
+    -webkit-app-region: no-drag;
 }
 
 .home-title {
@@ -65,7 +70,7 @@ body {
 .home-title-text {
     font-size: 4rem;
     font-weight: 600;
-    background: linear-gradient(135deg, #007aff, #5856d6, #af52de);
+    background: linear-gradient(135deg, #007aff, #5856d6, #af5af2);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -165,23 +170,39 @@ body {
 }
 
 .workspace-header {
-    height: 60px;
+    height: 40px;
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
+    justify-content: center;
     padding: 0 20px;
-    gap: 16px;
+    position: relative;
+    -webkit-app-region: drag;
+}
+
+.project-info-container {
+    -webkit-app-region: no-drag;
+    text-align: center;
+}
+
+.project-info {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    justify-content: center;
 }
 
 .project-info h2 {
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 500;
+    margin-bottom: 0;
 }
 
 .project-path {
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
+    opacity: 0.8;
 }
 
 .workspace-content {
@@ -219,7 +240,27 @@ body {
     font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    -webkit-app-region: no-drag;
 }
+
+/* 사이드바 메뉴 링크 정렬 개선 */
+.nav-link .nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.nav-link .nav-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
 
 .nav-link:hover {
     background: rgba(120, 120, 128, 0.16);
@@ -229,12 +270,6 @@ body {
 .nav-link.active {
     background: var(--accent-blue);
     color: white;
-}
-
-.nav-icon {
-    margin-right: 12px;
-    font-size: 1.2rem;
-    transition: transform 0.3s ease;
 }
 
 .nav-link:hover .nav-icon {
@@ -251,26 +286,34 @@ body {
     flex-direction: column;
 }
 
+/* 스크롤이 적용될 메인 컨테이너 */
+.content-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* 부모의 높이를 채우도록 설정 */
+    overflow-y: hidden; /* 스크롤은 자식 섹션이 담당 */
+}
+
+/* content-area의 자식 요소들이 스크롤되지 않도록 고정 */
+.content-area > .section-header {
+    flex-shrink: 0;
+}
+
+/* content-section들이 flex 아이템이 되어 남은 공간을 채우고 스크롤 가능하게 함 */
 .content-section {
     display: none;
-    height: 100%;
+    flex: 1;
+    flex-direction: column;
     overflow-y: auto;
 }
 
 .content-section.active {
-    display: block;
+    display: flex;
 }
 
-.content-section.hidden {
-    display: none;
-}
-
-.content-area {
-    flex: 1;
-    padding: 20px;
-    overflow-y: auto;
-}
-
+/* 파일 및 커밋 히스토리 섹션 헤더 버튼 위치 수정 */
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -281,46 +324,266 @@ body {
 .action-buttons {
     display: flex;
     gap: 12px;
+    -webkit-app-region: no-drag;
 }
 
-/* 설정 스타일 */
-.settings-group {
-    margin-bottom: 30px;
-}
-
-.settings-group h4 {
-    margin-bottom: 15px;
-    color: var(--text-primary);
-}
-
-.settings-group p {
-    color: var(--text-secondary);
+/* 사이드바 버튼 정렬 */
+.sidebar-btn-item {
     margin-bottom: 8px;
+    padding: 2px 8px;
+    list-style: none;
+    -webkit-app-region: no-drag;
 }
 
-.setting-item {
+.sidebar-btn-item .home-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* 콘텐츠 섹션 스타일 */
+.guide-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-top: 12px;
+}
+
+.guide-item {
+    padding: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.guide-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.guide-title {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 16px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
+    gap: 12px;
     margin-bottom: 12px;
 }
 
-.setting-info {
-    flex: 1;
+.guide-title h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
 }
 
-.setting-title {
-    font-weight: 500;
+.guide-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.guide-item p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.command-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.command-item {
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.command-item code {
+    display: block;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
     margin-bottom: 4px;
+}
+
+.command-item p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* 터미널 패널 */
+.terminal-panel {
+    height: 200px;
+    background: var(--bg-tertiary);
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border-color);
+    position: relative;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.terminal-resizer {
+    height: 8px;
+    cursor: ns-resize;
+    position: absolute;
+    top: -4px;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    -webkit-app-region: no-drag;
+}
+
+.terminal-resizer:hover {
+    background: var(--accent-blue);
+}
+
+.terminal-header {
+    height: 40px;
+    background: rgba(28, 28, 30, 0.8);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+    z-index: 10;
+    -webkit-app-region: no-drag;
+}
+
+.terminal-tabs-container {
+    display: flex;
+    gap: 6px;
+}
+
+.terminal-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.terminal-tab:hover {
+    color: var(--text-primary);
+    background: rgba(120, 120, 128, 0.16);
+}
+
+.terminal-tab.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.terminal-tab.active:hover {
+    background: var(--bg-primary);
     color: var(--text-primary);
 }
 
-.setting-desc {
-    font-size: 0.9rem;
+.terminal-tab-icon {
+    font-size: 1rem;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.terminal-tab.active .terminal-tab-icon {
+    opacity: 1;
+}
+
+.terminal-tab-icon svg {
+    display: block;
+}
+
+.terminal-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.terminal-control-btn {
+    background: none;
+    border: none;
     color: var(--text-secondary);
+    cursor: pointer;
+    padding: 3px;
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.terminal-control-btn:hover {
+    background: rgba(120, 120, 128, 0.16);
+    color: var(--text-primary);
+    transform: scale(1.1);
+}
+
+.terminal-control-btn .control-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.terminal-content-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+.terminal-content {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #f0f0f0;
+    padding: 16px;
+    height: 100%;
+    overflow-y: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.terminal-content div {
+    margin-bottom: 4px;
+}
+
+.terminal-panel.collapsed .terminal-content-wrapper {
+    display: none;
+}
+
+/* 설정 섹션의 제목 아래 여백 */
+.settings-group h4,
+#infoContent h3,
+#settingsContent h3,
+#guideContent h3 {
+    margin-bottom: 12px;
+}
+
+/* 설정 항목 간의 간격 */
+.settings-group > p {
+    margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 /* 반응형 */

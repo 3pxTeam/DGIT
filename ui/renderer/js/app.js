@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('appContainer').classList.add('visible');
         initializeApp();
     }, 2000);
+
+    // 터미널 리사이저 핸들러 추가
+    setupTerminalResizer();
 });
 
 // 앱 초기화
@@ -30,6 +33,62 @@ async function initializeApp() {
     } catch (error) {
         console.error('앱 초기화 실패:', error);
     }
+}
+
+// 터미널 크기 조절 로직
+function setupTerminalResizer() {
+    const resizer = document.querySelector('.terminal-resizer');
+    const terminalPanel = document.getElementById('terminalPanel');
+    const minHeight = 40; // 최소 높이 (헤더 높이)
+    const maxHeight = window.innerHeight * 0.8; // 최대 높이 (창 높이의 80%)
+    let isResizing = false;
+    let startY, startHeight;
+    let newHeight;
+    let animationFrameId = null;
+
+    const doResize = (e) => {
+        if (!isResizing) return;
+        
+        // 새로운 높이 계산
+        newHeight = startHeight - (e.clientY - startY);
+
+        // 이미 애니메이션 프레임이 스케줄링되어 있다면 중복 방지
+        if (animationFrameId) {
+            return;
+        }
+
+        animationFrameId = window.requestAnimationFrame(() => {
+            // 높이 제한을 적용하고 UI 업데이트
+            if (newHeight > minHeight && newHeight < maxHeight) {
+                terminalPanel.style.height = `${newHeight}px`;
+            }
+            // 애니메이션 프레임 ID 초기화
+            animationFrameId = null;
+        });
+    };
+    
+    const stopResize = () => {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+        if (animationFrameId) {
+            window.cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+    };
+
+    resizer.addEventListener('mousedown', function(e) {
+        isResizing = true;
+        document.body.style.cursor = 'ns-resize';
+        e.preventDefault();
+        
+        startY = e.clientY;
+        startHeight = terminalPanel.clientHeight;
+
+        document.addEventListener('mousemove', doResize);
+        document.addEventListener('mouseup', stopResize);
+    });
 }
 
 // 앱 설정 로드
@@ -166,19 +225,63 @@ async function showRecentProjects() {
         return;
     }
 
-    const projectList = recentProjects.map(project => `
-        <div class="file-item" onclick="openRecentProject('${project.path}', '${project.name}')">
-            <div class="file-thumbnail">📁</div>
-            <div class="file-info">
-                <div class="file-name">${project.name}</div>
-                <div class="file-details">${project.path} • ${formatDate(project.lastOpened)}</div>
-            </div>
-        </div>
-    `).join('');
+    // 작업 시점별 그룹화 + 경로 단순화
+    const groups = {
+        '오늘': [],
+        '어제': [],
+        '이번 주': [],
+        '이전': []
+    };
+    const now = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+
+    recentProjects.forEach(project => {
+        const modified = new Date(project.lastOpened || project.modified || project.date || project.timestamp || project.time || project.lastAccessed || project.lastModified || project.created);
+        if (modified.toDateString() === today) {
+            groups['오늘'].push(project);
+        } else if (modified.toDateString() === yesterday.toDateString()) {
+            groups['어제'].push(project);
+        } else if (modified > weekAgo) {
+            groups['이번 주'].push(project);
+        } else {
+            groups['이전'].push(project);
+        }
+    });
+
+    let html = '';
+    Object.entries(groups).forEach(([label, items]) => {
+        if (items.length === 0) return;
+        html += `<div class="recent-group"><div class="recent-group-label">${label}</div>`;
+        html += items.map(project => {
+            const lastFolder = project.path ? project.path.split(/\\|\//).filter(Boolean).pop() : '';
+            const tooltip = project.path || '';
+            // SVG 아이콘 매핑
+            const ext = project.path ? project.path.split('.').pop().toLowerCase() : '';
+            let iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="16" y="4" rx="4" fill="#3386F6"/><rect width="10" height="6" x="2" y="2" rx="2" fill="#7EC8E3"/></svg>`; // 파란 폴더
+            if (["psd"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#0071C5"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">PSD</text></svg>`;
+            else if (["ai"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#FF9A00"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">Ai</text></svg>`;
+            else if (["figma"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5" fill="#0acf83"/><circle cx="12" cy="17" r="5" fill="#a259ff" fill-opacity="0.7"/></svg>`;
+            else if (["sketch"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,3 2,9 12,21 22,9" fill="#f7c800"/></svg>`;
+            else if (["xd"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#a259ff"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">XD</text></svg>`;
+            else if (["png","jpg","jpeg","webp","bmp","gif"].includes(ext)) iconSVG = `<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#eee"/><circle cx="8" cy="8" r="3" fill="#0acf83"/><rect x="4" y="14" width="16" height="6" fill="#f7c800"/></svg>`;
+            return `
+                <div class="file-item" onclick="openRecentProject('${project.path}', '${project.name}')" title="${tooltip}">
+                    <div class="file-thumbnail">${iconSVG}</div>
+                    <div class="file-info">
+                        <div class="file-name">${project.name}</div>
+                        <div class="file-details">${lastFolder} • ${formatDate(project.lastOpened)}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        html += '</div>';
+    });
 
     showModal('지난 프로젝트', '최근 작업한 프로젝트를 선택하세요', `
         <div class="file-list">
-            ${projectList}
+            ${html}
         </div>
     `);
 }
@@ -229,7 +332,7 @@ function showTerminalTab(tabType) {
         tab.classList.remove('active');
     });
 
-    event.target.classList.add('active');
+    event.target.closest('.terminal-tab').classList.add('active');
 
     if (tabType === 'log') {
         document.getElementById('terminalLog').classList.remove('hidden');
@@ -237,20 +340,6 @@ function showTerminalTab(tabType) {
     } else {
         document.getElementById('terminalLog').classList.add('hidden');
         document.getElementById('terminalStatus').classList.remove('hidden');
-    }
-}
-
-// 터미널 토글
-function toggleTerminal() {
-    const terminalPanel = document.getElementById('terminalPanel');
-    const toggleBtn = document.getElementById('terminalToggleBtn');
-
-    if (terminalPanel.classList.contains('collapsed')) {
-        terminalPanel.classList.remove('collapsed');
-        toggleBtn.textContent = '✕';
-    } else {
-        terminalPanel.classList.add('collapsed');
-        toggleBtn.textContent = '+';
     }
 }
 

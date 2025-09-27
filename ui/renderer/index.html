@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="styles/animations.css">
 </head>
 <body data-theme="dark">
-<!-- 로딩 화면 -->
 <div class="splash-screen" id="splashScreen">
     <div class="splash-logo">
         <div class="splash-logo-icon"></div>
@@ -25,9 +24,7 @@
     </div>
 </div>
 
-<!-- 메인 앱 컨테이너 -->
 <div class="app-container" id="appContainer">
-    <!-- 홈 화면 -->
     <div class="home-screen" id="homeScreen">
         <div class="home-title">
             <span class="home-title-text">DGit</span>
@@ -70,44 +67,58 @@
         </div>
     </div>
 
-    <!-- 워크스페이스 -->
     <div class="workspace" id="workspace">
         <div class="workspace-header">
-            <button class="btn btn-secondary home-btn" onclick="goHome()">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
-                </svg>
-                홈
-            </button>
-            <div class="project-info">
-                <h2 id="projectName">프로젝트명</h2>
-                <div class="project-path" id="projectPath">/path/to/project</div>
+            <div class="project-info-container">
+                <div class="project-info">
+                    <h2 id="projectName">프로젝트명</h2>
+                    <div class="project-path" id="projectPath">/path/to/project</div>
+                </div>
             </div>
         </div>
 
         <div class="workspace-content">
-            <!-- 사이드바 -->
             <div class="sidebar">
                 <ul class="sidebar-nav">
+                    <li class="sidebar-btn-item">
+                        <button class="btn btn-secondary home-btn" onclick="goHome()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
+                            </svg>
+                            홈
+                        </button>
+                    </li>
                     <li><a href="#" onclick="showContent('files')" class="nav-link active" id="filesNav">
                         <span class="nav-icon">📄</span> 파일
                     </a></li>
                     <li><a href="#" onclick="showContent('versions')" class="nav-link" id="versionsNav">
-                        <span class="nav-icon">⏱</span> 히스토리
+                        <span class="nav-icon">⏱</span> 커밋 히스토리
                     </a></li>
-                    <li><a href="#" onclick="showContent('branches')" class="nav-link" id="branchesNav">
-                        <span class="nav-icon">⸢</span> 브랜치
+                    <li><a href="#" onclick="showContent('guide')" class="nav-link" id="guideNav">
+                        <span class="nav-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                            </svg>
+                        </span> 가이드
                     </a></li>
                     <li><a href="#" onclick="showContent('settings')" class="nav-link" id="settingsNav">
                         <span class="nav-icon">⚙</span> 설정
                     </a></li>
+                    <li><a href="#" onclick="showContent('info')" class="nav-link" id="infoNav">
+                        <span class="nav-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                        </span> 정보
+                    </a></li>
                 </ul>
             </div>
 
-            <!-- 메인 콘텐츠 -->
             <div class="main-content">
                 <div class="content-area">
-                    <!-- 파일 섹션 -->
                     <div id="filesContent" class="content-section active">
                         <div class="section-header">
                             <h3>프로젝트 파일</h3>
@@ -121,7 +132,6 @@
                         <div class="file-list" id="fileList"></div>
                     </div>
 
-                    <!-- 버전 섹션 -->
                     <div id="versionsContent" class="content-section hidden">
                         <div class="section-header">
                             <h3>커밋 히스토리</h3>
@@ -133,21 +143,71 @@
                         <div class="commit-list" id="commitList"></div>
                     </div>
 
-                    <!-- 브랜치 섹션 -->
-                    <div id="branchesContent" class="content-section hidden">
-                        <h3>브랜치 관리</h3>
-                        <div class="branch-graph" id="branchGraph"></div>
-                        <button class="btn btn-primary" onclick="createBranch()">새 브랜치 생성</button>
+                    <div id="guideContent" class="content-section hidden">
+                        <h3>DGit 가이드</h3>
+                        <div class="guide-section">
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">📁</span>
+                                    <h4>프로젝트 시작하기</h4>
+                                </div>
+                                <p>
+                                    홈 화면에서 '새 프로젝트 선택'을 눌러 관리하고 싶은 폴더를 선택하세요.<br>
+                                    DGit 저장소가 없는 폴더는 자동으로 초기화할 수 있습니다.
+                                </p>
+                            </div>
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">💾</span>
+                                    <h4>변경사항 커밋하기</h4>
+                                </div>
+                                <p>
+                                    파일을 수정하면 '프로젝트 파일' 목록에서 상태가 'modified'로 바뀝니다.<br>
+                                    '변경사항 커밋' 버튼을 눌러 변경된 파일을 저장하세요.
+                                </p>
+                            </div>
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">↩️</span>
+                                    <h4>이전 버전으로 복원</h4>
+                                </div>
+                                <p>
+                                    '커밋 히스토리' 탭에서 특정 커밋을 선택하고 '복원' 버튼을 누르면 해당 시점으로 돌아갈 수 있습니다.
+                                </p>
+                            </div>
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">⚡</span>
+                                    <h4>DGit 명령어 소개</h4>
+                                </div>
+                                <div class="command-list">
+                                    <div class="command-item">
+                                        <code>dgit init</code>
+                                        <p>새로운 DGit 저장소를 현재 디렉터리에 생성합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <code>dgit status</code>
+                                        <p>현재 프로젝트의 변경된 파일 상태를 확인합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <code>dgit add [파일/폴더]</code>
+                                        <p>변경사항을 스테이징 영역에 추가합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <code>dgit commit -m "[메시지]"</code>
+                                        <p>스테이징된 파일을 커밋하여 저장소에 기록합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <code>dgit log</code>
+                                        <p>커밋 히스토리를 시간 순서대로 보여줍니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-
-                    <!-- 설정 섹션 -->
+                    
                     <div id="settingsContent" class="content-section hidden">
                         <h3>환경설정</h3>
-                        <div class="settings-group">
-                            <h4>정보</h4>
-                            <p>버전: 1.0.0</p>
-                            <p>제작: 3pxTeam</p>
-                        </div>
                         <div class="settings-group">
                             <h4>알림 설정</h4>
                             <div class="setting-item">
@@ -161,22 +221,43 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 터미널 패널 -->
-                <div class="terminal-panel" id="terminalPanel">
-                    <div class="terminal-header">
-                        <div class="terminal-tabs">
-                            <div class="terminal-tab active" onclick="showTerminalTab('log')">커밋 로그</div>
-                            <div class="terminal-tab" onclick="showTerminalTab('status')">상태</div>
-                        </div>
-                        <div class="terminal-controls">
-                            <button class="terminal-control-btn" onclick="toggleTerminal()" id="terminalToggleBtn" title="터미널 숨기기">✕</button>
+                    
+                    <div id="infoContent" class="content-section hidden">
+                        <h3>정보</h3>
+                        <div class="settings-group">
+                            <p>버전: 1.0.0</p>
+                            <p>제작: 3pxTeam</p>
                         </div>
                     </div>
-                    <div class="terminal-content" id="terminalContent">
-                        <div id="terminalLog">커밋 로그가 여기에 표시됩니다...</div>
-                        <div id="terminalStatus" class="hidden">상태 정보가 여기에 표시됩니다...</div>
+                </div>
+
+                <div class="terminal-panel" id="terminalPanel">
+                    <div class="terminal-resizer"></div>
+                    <div class="terminal-header">
+                        <div class="terminal-tabs-container">
+                            <div class="terminal-tab active" onclick="showTerminalTab('log')">
+                                <span class="terminal-tab-icon">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M1 3h14v10H1V3zm1.5 1.5v7H13.5v-7H2.5zM3 4h10v1H3V4zm0 2h10v1H3V6zm0 2h7v1H3V8z"/>
+                                    </svg>
+                                </span>
+                                <span class="terminal-tab-text">로그</span>
+                            </div>
+                            <div class="terminal-tab" onclick="showTerminalTab('status')">
+                                <span class="terminal-tab-icon">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M1 3h14v10H1V3zm1.5 1.5v7H13.5v-7H2.5zM3 5h2v6H3V5zm3 2h2v4H6V7zm3 1h2v3H9V8z"/>
+                                    </svg>
+                                </span>
+                                <span class="terminal-tab-text">상태</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="terminal-content-wrapper">
+                        <div class="terminal-content" id="terminalContent">
+                            <div id="terminalLog">커밋 로그가 여기에 표시됩니다...</div>
+                            <div id="terminalStatus" class="hidden">상태 정보가 여기에 표시됩니다...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -184,7 +265,6 @@
     </div>
 </div>
 
-<!-- 모달 -->
 <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
         <div class="modal-header">
@@ -199,10 +279,8 @@
     </div>
 </div>
 
-<!-- 토스트 컨테이너 -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- 이미지 미리보기 모달 -->
 <div class="image-preview-modal" id="imagePreviewModal" onclick="closeImagePreview()">
     <button class="image-preview-close" onclick="closeImagePreview()">×</button>
     <div class="image-preview-content" onclick="event.stopPropagation()">
@@ -211,7 +289,6 @@
     </div>
 </div>
 
-<!-- 스크립트 파일들 - 순서가 중요합니다 -->
 <script src="js/utils.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/project.js"></script>

@@ -119,9 +119,12 @@ button.btn-secondary:hover, .btn-secondary:hover {
     flex: 1;
 }
 
-.file-name {
-    font-weight: 500;
-    margin-bottom: 4px;
+.file-item .file-name {
+    font-size: 1.15rem;
+    font-weight: bold;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+    margin-bottom: 2px;
 }
 
 .file-details {
@@ -637,32 +640,6 @@ button.btn-secondary:hover, .btn-secondary:hover {
     justify-content: center;
 }
 
-/* 브랜치 시각화 */
-.branch-graph {
-    height: 300px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 20px;
-    position: relative;
-    overflow: hidden;
-}
-
-.branch-node {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--accent-blue);
-    border: 2px solid var(--bg-primary);
-}
-
-.branch-line {
-    position: absolute;
-    height: 2px;
-    background: var(--accent-blue);
-}
-
 /* 스크롤바 스타일 */
 .file-list::-webkit-scrollbar,
 .commit-list::-webkit-scrollbar,
@@ -1120,4 +1097,11 @@ button.btn-secondary:hover, .btn-secondary:hover {
     .step-label {
         text-align: left;
     }
+}
+
+.recent-group-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--accent-blue, #3498db);
+    margin: 18px 0 8px 4px;
 }

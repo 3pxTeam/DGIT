@@ -4,6 +4,7 @@
 
 // app.js 함수들
 let initializeApp;
+let setupTerminalResizer;
 let loadAppConfig;
 let updateNotificationUI;
 let loadRecentProjects;
@@ -14,7 +15,6 @@ let openRecentProject;
 let goHome;
 let showContent;
 let showTerminalTab;
-let toggleTerminal;
 let toggleNotifications;
 let saveNotificationSettings;
 
@@ -43,15 +43,12 @@ let performCommit;
 let addAllFiles;
 let restoreFiles;
 let performRestore;
-let createBranch;
-let createNewBranch;
 let restoreToCommit;
 let performRestoreToCommit;
 let parseGitStatus;
 let getGitStatusText;
 let parseCommitLog;
 let formatCommitDate;
-let updateBranchGraph;
 
 // ui.js 함수들
 let renderFiles;
@@ -85,7 +82,6 @@ let formatTime;
 let showContextMenu;
 let setupDropZone;
 let showKeyboardShortcuts;
-let toggleTheme;
 let toggleFullscreen;
 let toggleDevTools;
 
