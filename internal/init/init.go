@@ -118,49 +118,36 @@ func (ri *RepositoryInitializer) InitializeRepository(path string) error {
 	return nil
 }
 
-// createStructure creates cache directory structure
+// createStructure creates simplified directory structure
 func (ri *RepositoryInitializer) createStructure(dgitPath string) error {
 	if err := os.MkdirAll(dgitPath, 0755); err != nil {
 		return err
 	}
 
-	// Cache Structure
+	// Simplified Structure
 	subdirs := []string{
-		// Stage 1: Hot Cache (LZ4)
+		// Version Storage (통합 저장)
+		"versions",
+
+		// Commit Metadata (메타데이터 전용)
+		"commits",
+
+		// Single Cache Directory (단일 캐시)
 		"cache",
-		"cache/hot",
-		"cache/hot/metadata",
-		"cache/hot/index",
-
-		// Stage 2: Warm Cache (Zstd Level 3)
-		"cache/warm",
-		"cache/warm/metadata",
-		"cache/warm/index",
-
-		// Stage 3: Cold Storage (Zstd Level 22)
-		"cache/cold",
-		"cache/cold/archives",
-		"cache/cold/index",
-
-		// Traditional Objects Directory
-		"objects",
-		"objects/snapshots",
-		"objects/metadata",
+		"cache/temp",     // 임시 압축 파일
+		"cache/metadata", // 캐시 메타데이터
 
 		// Active Working Areas
 		"staging",
-		"commits",
 
-		// Performance Monitoring
+		// System Directories
+		"temp",  // 임시 작업 공간
+		"refs",  // 참조 정보
+		"hooks", // 훅 스크립트
+
+		// Performance Monitoring (간소화)
 		"logs",
-		"logs/compression",
-		"logs/cache",
 		"metrics",
-
-		// System
-		"refs",
-		"hooks",
-		"temp",
 	}
 
 	for _, subdir := range subdirs {
@@ -171,86 +158,18 @@ func (ri *RepositoryInitializer) createStructure(dgitPath string) error {
 	}
 
 	if err := ri.createCacheIndexes(dgitPath); err != nil {
-		return fmt.Errorf("failed to create cache indexes: %w", err)
+		return fmt.Errorf("failed to create indexes: %w", err)
 	}
 
 	return nil
 }
 
-// createConfig creates configuration
-func (ri *RepositoryInitializer) createConfig(dgitPath string) error {
-	config := RepositoryConfig{
-		Author:      "DGit User",
-		Email:       "user@dgit.local",
-		Created:     time.Now(),
-		Version:     "2.0.0",
-		Description: "DGit repository with compression",
-
-		// Compression Configuration
-		Compression: CompressionConfig{
-			// Stage 1: LZ4
-			LZ4Config: LZ4StageConfig{
-				Enabled:          true,
-				MaxFileSize:      500 * 1024 * 1024, // 500MB max for LZ4 processing
-				CompressionLevel: 1,                 // Fastest LZ4 level
-				CacheRetention:   24,                // Keep 24 hours in hot cache
-			},
-
-			// Stage 2: Zstd Background Optimization
-			ZstdConfig: ZstdStageConfig{
-				Enabled:          true,
-				CompressionLevel: 3,   // Balanced speed/compression ratio
-				OptimizeInterval: 15,  // Optimize every 15 minutes
-				MinIdleTime:      30,  // Wait 30s of idle time before optimizing
-				CompressionRatio: 0.4, // Target 60% compression efficiency
-			},
-
-			// Stage 3: Maximum Compression
-			ArchiveConfig: ArchiveStageConfig{
-				Enabled:          true,
-				CompressionLevel: 22,                      // Maximum Zstd compression for archives
-				ArchiveAfterDays: 30,                      // Archive files older than 30 days
-				MaxArchiveSize:   10 * 1024 * 1024 * 1024, // 10GB per archive file
-			},
-
-			// Cache Configuration
-			CacheConfig: SmartCacheConfig{
-				HotCacheSize:    2 * 1024,   // 2GB hot cache
-				WarmCacheSize:   10 * 1024,  // 10GB warm cache
-				ColdStorageSize: 100 * 1024, // 100GB cold storage
-				AccessThreshold: 3,          // 3 accesses to promote to hot cache
-				EvictionPolicy:  "LRU",      // Least Recently Used eviction strategy
-			},
-		},
-
-		// Performance Monitoring Configuration
-		Performance: PerformanceConfig{
-			EnableMetrics:      true,
-			LogCompressionTime: true,
-			LogCacheHits:       true,
-			StatsRetentionDays: 90, // Keep 3 months of performance statistics
-		},
-	}
-
-	configPath := filepath.Join(dgitPath, "config")
-	configData, err := json.MarshalIndent(config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, configData, 0644); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
-	}
-
-	return nil
-}
-
-// createCacheIndexes creates lookup indexes
+// createIndexes creates lookup indexes
 func (ri *RepositoryInitializer) createCacheIndexes(dgitPath string) error {
 	indexes := map[string]interface{}{
-		"cache/hot/index/files.json":     make(map[string]interface{}),
-		"cache/warm/index/files.json":    make(map[string]interface{}),
-		"cache/cold/index/archives.json": make(map[string]interface{}),
+		"cache/metadata/index.json": make(map[string]interface{}),
+		"versions/index.json":       make(map[string]interface{}),
+		"commits/index.json":        make(map[string]interface{}),
 	}
 
 	for indexPath, indexData := range indexes {
@@ -263,6 +182,74 @@ func (ri *RepositoryInitializer) createCacheIndexes(dgitPath string) error {
 		if err := os.WriteFile(fullPath, data, 0644); err != nil {
 			return fmt.Errorf("failed to create index %s: %w", indexPath, err)
 		}
+	}
+
+	return nil
+}
+
+// createConfig creates simplified configuration
+func (ri *RepositoryInitializer) createConfig(dgitPath string) error {
+	config := RepositoryConfig{
+		Author:      "DGit User",
+		Email:       "user@dgit.local",
+		Created:     time.Now(),
+		Version:     "2.0.0",
+		Description: "DGit repository with simplified structure",
+
+		// Simplified Compression Configuration
+		Compression: CompressionConfig{
+			// LZ4 Fast Compression (단일 압축 방식)
+			LZ4Config: LZ4StageConfig{
+				Enabled:          true,
+				MaxFileSize:      500 * 1024 * 1024, // 500MB max
+				CompressionLevel: 1,                 // Fastest LZ4 level
+				CacheRetention:   24,                // Keep 24 hours
+			},
+
+			// Simplified Background Optimization
+			ZstdConfig: ZstdStageConfig{
+				Enabled:          false, // 단순화를 위해 비활성화
+				CompressionLevel: 3,
+				OptimizeInterval: 60,  // 1시간마다
+				MinIdleTime:      300, // 5분 대기
+				CompressionRatio: 0.4,
+			},
+
+			// Archive (필요시에만)
+			ArchiveConfig: ArchiveStageConfig{
+				Enabled:          false, // 단순화를 위해 비활성화
+				CompressionLevel: 22,
+				ArchiveAfterDays: 90,                     // 3개월 후
+				MaxArchiveSize:   5 * 1024 * 1024 * 1024, // 5GB
+			},
+
+			// Simplified Cache Configuration
+			CacheConfig: SmartCacheConfig{
+				HotCacheSize:    1 * 1024, // 1GB 단일 캐시
+				WarmCacheSize:   0,        // 사용 안함
+				ColdStorageSize: 0,        // 사용 안함
+				AccessThreshold: 1,        // 즉시 캐시
+				EvictionPolicy:  "LRU",
+			},
+		},
+
+		// Performance Monitoring Configuration
+		Performance: PerformanceConfig{
+			EnableMetrics:      true,
+			LogCompressionTime: true,
+			LogCacheHits:       false, // 단순화
+			StatsRetentionDays: 30,    // 1개월
+		},
+	}
+
+	configPath := filepath.Join(dgitPath, "config")
+	configData, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, configData, 0644); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
 	}
 
 	return nil
