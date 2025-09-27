@@ -605,7 +605,7 @@ func (cm *CommitManager) displayCompressionStats(result *CompressionResult, tota
 	switch result.Strategy {
 	case "lz4":
 		fmt.Printf("LZ4 compression: %.1f%% compressed in %.1fms\n", compressionPercent, result.CompressionTime)
-		fmt.Printf("Speed improvement: %.1fx faster than traditional ZIP\n", result.SpeedImprovement)
+		fmt.Printf("Compression completed efficiently\n")
 		fmt.Printf("Cache: %s | File: %s\n", result.CacheLevel, result.OutputFile)
 	case "psd_smart":
 		fmt.Printf("PSD Smart Delta: %.1f%% space saved in %.1fms\n", compressionPercent, result.CompressionTime)
@@ -626,7 +626,7 @@ func (cm *CommitManager) displayCompressionStats(result *CompressionResult, tota
 
 	// Background optimization notice
 	if cm.enableBackgroundOpt && result.Strategy == "lz4" {
-		fmt.Printf("Background optimization scheduled for better compression\n")
+		fmt.Printf("Optimization scheduled\n")
 	}
 }
 
