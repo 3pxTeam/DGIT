@@ -131,7 +131,6 @@ async function performCommit(message) {
         `);
 
         // 1. 먼저 변경된 파일 수 확인
-        // eslint-disable-next-line no-undef
         updateProgressBar('commitProgressBar', 5, '변경사항 분석 중...');
         document.getElementById('commitProgressText').textContent = '변경된 파일을 분석하고 있습니다...';
 
@@ -160,7 +159,6 @@ async function performCommit(message) {
         terminalLog.scrollTop = terminalLog.scrollHeight;
 
         // 2. 파일 추가 시작 (10% ~ 70%)
-        // eslint-disable-next-line no-undef
         updateProgressBar('commitProgressBar', 10, '파일 추가 중...');
         document.getElementById('commitProgressText').textContent = `${totalFiles}개 파일을 스테이징 영역에 추가하고 있습니다...`;
 
@@ -173,7 +171,6 @@ async function performCommit(message) {
 
         // 파일 추가 완료 시 70%까지
         const addProgress = 70;
-        // eslint-disable-next-line no-undef
         updateProgressBar('commitProgressBar', addProgress, `${totalFiles}개 파일 스테이징 완료`);
         document.getElementById('commitProgressText').textContent = '커밋을 생성하고 있습니다...';
 
@@ -187,7 +184,6 @@ async function performCommit(message) {
         terminalLog.scrollTop = terminalLog.scrollHeight;
 
         // 3. 커밋 실행 (70% ~ 90%)
-        // eslint-disable-next-line no-undef
         updateProgressBar('commitProgressBar', 85, '커밋 실행 중...');
         document.getElementById('commitProgressText').textContent = '변경사항을 저장소에 기록하고 있습니다...';
 
@@ -195,7 +191,6 @@ async function performCommit(message) {
 
         if (commitResult.success) {
             // 100% - 완료
-            // eslint-disable-next-line no-undef
             updateProgressBar('commitProgressBar', 100, '커밋 완료!');
             document.getElementById('commitProgressText').textContent = '커밋이 성공적으로 완료되었습니다!';
 
@@ -220,7 +215,6 @@ async function performCommit(message) {
         } else {
             // 실패 처리
             document.getElementById('commitProgressText').textContent = '커밋 실행 중 오류가 발생했습니다.';
-            // eslint-disable-next-line no-undef
             updateProgressBar('commitProgressBar', 100, '오류 발생');
 
             setTimeout(() => {
@@ -233,7 +227,6 @@ async function performCommit(message) {
 
         if (document.getElementById('commitProgressText')) {
             document.getElementById('commitProgressText').textContent = '커밋 중 오류가 발생했습니다.';
-            // eslint-disable-next-line no-undef
             updateProgressBar('commitProgressBar', 100, '오류');
         }
 
@@ -359,7 +352,7 @@ async function restoreToCommit(commitHash) {
         return;
     }
 
-    showModal('커밋으로 복원', `이 커밋으로 복원하시겠습니까?`, `
+    showModal('커밋으로 복원', '이 커밋으로 복원하시겠습니까?', `
         <div style="padding: 20px;">
             <p style="margin-bottom: 20px; color: var(--text-secondary);">
                 모든 파일이 커밋 <code>${commitHash}</code> 상태로 복원됩니다.<br>
