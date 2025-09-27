@@ -116,31 +116,6 @@ function formatPercent(value, total, decimals = 1) {
 // 색상 유틸리티
 const ColorUtils = {
     // HEX를 RGB로 변환
-    hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
-    },
-
-    // RGB를 HEX로 변환
-    rgbToHex(r, g, b) {
-        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-    },
-
-    // 색상 밝기 계산
-    getBrightness(hex) {
-        const rgb = this.hexToRgb(hex);
-        if (!rgb) return 0;
-        return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
-    },
-
-    // 색상이 어두운지 확인
-    isDark(hex) {
-        return this.getBrightness(hex) < 128;
-    }
 };
 
 // 디바운스 함수
@@ -272,17 +247,6 @@ const StorageUtils = {
             return defaultValue;
         }
     },
-
-    remove(key) {
-        try {
-            localStorage.removeItem(key);
-            return true;
-        } catch (error) {
-            console.error('localStorage remove error:', error);
-            return false;
-        }
-    },
-
     clear() {
         try {
             localStorage.clear();
@@ -297,145 +261,27 @@ const StorageUtils = {
 // URL 유틸리티
 const UrlUtils = {
     // 쿼리 파라미터를 객체로 변환
-    parseQuery(queryString = window.location.search) {
-        const params = new URLSearchParams(queryString);
-        const result = {};
-        for (const [key, value] of params) {
-            result[key] = value;
-        }
-        return result;
-    },
-
-    // 객체를 쿼리 스트링으로 변환
-    buildQuery(params) {
-        const searchParams = new URLSearchParams();
-        for (const [key, value] of Object.entries(params)) {
-            if (value !== null && value !== undefined) {
-                searchParams.append(key, value);
-            }
-        }
-        return searchParams.toString();
-    },
-
-    // URL 유효성 검사
-    isValidUrl(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
+// 객체를 쿼리 스트링으로 변환
+// URL 유효성 검사
 };
 
 // 에러 처리 유틸리티
 const ErrorUtils = {
     // 에러 메시지 정규화
-    normalizeError(error) {
-        if (typeof error === 'string') {
-            return { message: error, type: 'string' };
-        }
-        if (error instanceof Error) {
-            return {
-                message: error.message,
-                stack: error.stack,
-                name: error.name,
-                type: 'Error'
-            };
-        }
-        return {
-            message: JSON.stringify(error),
-            type: 'unknown'
-        };
-    },
-
-    // 사용자 친화적 에러 메시지
-    getUserFriendlyMessage(error) {
-        const normalized = this.normalizeError(error);
-
-        // 네트워크 관련 에러
-        if (normalized.message.includes('fetch') || normalized.message.includes('network')) {
-            return '네트워크 연결을 확인해주세요.';
-        }
-
-        // 권한 관련 에러
-        if (normalized.message.includes('permission') || normalized.message.includes('unauthorized')) {
-            return '접근 권한이 없습니다.';
-        }
-
-        // 파일 관련 에러
-        if (normalized.message.includes('file') || normalized.message.includes('not found')) {
-            return '파일을 찾을 수 없습니다.';
-        }
-
-        return normalized.message || '알 수 없는 오류가 발생했습니다.';
-    }
 };
 
 // 성능 측정 유틸리티
 const PerformanceUtils = {
     // 함수 실행 시간 측정
-    measureTime(func, ...args) {
-        const start = performance.now();
-        const result = func.apply(this, args);
-        const end = performance.now();
-
-        console.log(`실행 시간: ${end - start}ms`);
-        return result;
-    },
-
-    // 비동기 함수 실행 시간 측정
-    async measureTimeAsync(func, ...args) {
-        const start = performance.now();
-        const result = await func.apply(this, args);
-        const end = performance.now();
-
-        console.log(`실행 시간: ${end - start}ms`);
-        return result;
-    }
+// 비동기 함수 실행 시간 측정
 };
 
 // 환경 감지 유틸리티
 const EnvUtils = {
     // 운영체제 감지
-    getOS() {
-        const userAgent = window.navigator.userAgent;
-        const platform = window.navigator.platform;
-        const macosPlatforms = ['Macintosh', 'MacIntel', 'MacPPC', 'Mac68K'];
-        const windowsPlatforms = ['Win32', 'Win64', 'Windows', 'WinCE'];
-        const iosPlatforms = ['iPhone', 'iPad', 'iPod'];
-
-        if (macosPlatforms.indexOf(platform) !== -1) return 'Mac OS';
-        if (iosPlatforms.indexOf(platform) !== -1) return 'iOS';
-        if (windowsPlatforms.indexOf(platform) !== -1) return 'Windows';
-        if (/Android/.test(userAgent)) return 'Android';
-        if (/Linux/.test(platform)) return 'Linux';
-
-        return 'Unknown';
-    },
-
-    // 브라우저 감지
-    getBrowser() {
-        const userAgent = navigator.userAgent;
-
-        if (userAgent.includes('Chrome')) return 'Chrome';
-        if (userAgent.includes('Firefox')) return 'Firefox';
-        if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) return 'Safari';
-        if (userAgent.includes('Edge')) return 'Edge';
-        if (userAgent.includes('Opera')) return 'Opera';
-
-        return 'Unknown';
-    },
-
-    // 모바일 기기 감지
-    isMobile() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    },
-
-    // 터치 지원 감지
-    isTouchDevice() {
-        return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    }
+// 브라우저 감지
+// 모바일 기기 감지
+// 터치 지원 감지
 };
 
 // 전역에서 사용할 수 있도록 export
