@@ -65,7 +65,7 @@ type Commit struct {
 	CompressionInfo *CompressionResult     `json:"compression_info,omitempty"`
 }
 
-// CommitManager handles commit creation with 3-tier cache system
+// CommitManager handles commit creation with simplified storage system
 type CommitManager struct {
 	DgitDir    string
 	ObjectsDir string
@@ -73,10 +73,10 @@ type CommitManager struct {
 	ConfigFile string
 	DeltaDir   string
 
-	// 3-Tier Cache System
-	HotCacheDir  string // LZ4 hot cache for immediate access
-	WarmCacheDir string // Zstd warm cache for background optimization
-	ColdCacheDir string // Archive cold cache for long-term storage
+	// Simplified Storage System
+	VersionsDir string // Main version storage directory
+	CommitsDir  string // Commit metadata directory
+	CacheDir    string // Single cache directory
 
 	// Compression optimization settings
 	MaxDeltaChainLength  int
@@ -87,22 +87,22 @@ type CommitManager struct {
 	enableBackgroundOpt bool
 }
 
-// NewCommitManager creates a new commit manager with 3-tier cache
+// NewCommitManager creates a new commit manager with simplified structure
 func NewCommitManager(dgitDir string) *CommitManager {
 	objectsDir := filepath.Join(dgitDir, "objects")
 	deltaDir := filepath.Join(objectsDir, "deltas")
 
-	// 3-Stage Cache System
-	hotCacheDir := filepath.Join(dgitDir, "cache", "hot")
-	warmCacheDir := filepath.Join(dgitDir, "cache", "warm")
-	coldCacheDir := filepath.Join(dgitDir, "cache", "cold")
+	// Simplified Storage System
+	versionsDir := filepath.Join(dgitDir, "versions")
+	commitsDir := filepath.Join(dgitDir, "commits")
+	cacheDir := filepath.Join(dgitDir, "cache")
 
-	// Ensure all cache directories exist
+	// Ensure all directories exist
 	os.MkdirAll(objectsDir, 0755)
 	os.MkdirAll(deltaDir, 0755)
-	os.MkdirAll(hotCacheDir, 0755)
-	os.MkdirAll(warmCacheDir, 0755)
-	os.MkdirAll(coldCacheDir, 0755)
+	os.MkdirAll(versionsDir, 0755)
+	os.MkdirAll(commitsDir, 0755)
+	os.MkdirAll(cacheDir, 0755)
 
 	cm := &CommitManager{
 		DgitDir:              dgitDir,
@@ -110,9 +110,9 @@ func NewCommitManager(dgitDir string) *CommitManager {
 		HeadFile:             filepath.Join(dgitDir, "HEAD"),
 		ConfigFile:           filepath.Join(dgitDir, "config"),
 		DeltaDir:             deltaDir,
-		HotCacheDir:          hotCacheDir,
-		WarmCacheDir:         warmCacheDir,
-		ColdCacheDir:         coldCacheDir,
+		VersionsDir:          versionsDir,
+		CommitsDir:           commitsDir,
+		CacheDir:             cacheDir,
 		MaxDeltaChainLength:  5,
 		CompressionThreshold: 0.3,
 		lz4CompressionLevel:  1,
@@ -272,11 +272,11 @@ func (cm *CommitManager) selectDeltaAlgorithm(files []*staging.StagedFile) strin
 func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version int, startTime time.Time) (*CompressionResult, error) {
 	compressionStartTime := time.Now()
 
-	// Store in hot cache for immediate access
-	hotCachePath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
+	// Store in versions directory for immediate access
+	versionPath := filepath.Join(cm.VersionsDir, fmt.Sprintf("v%d.lz4", version))
 
 	// Create LZ4 compressed file
-	outFile, err := os.Create(hotCachePath)
+	outFile, err := os.Create(versionPath)
 	if err != nil {
 		return nil, fmt.Errorf("create LZ4 file: %w", err)
 	}
@@ -309,7 +309,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 			actualSize := int64(len(fileContent))
 			originalSize += actualSize
 
-			// Write structured file header for identification during extraction
+			// ✅ 수정: Write structured file header for identification during extraction
 			header := fmt.Sprintf("FILE:%s:%d\n", file.Path, actualSize)
 			_, err = lz4Writer.Write([]byte(header))
 			if err != nil {
@@ -317,7 +317,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 				return
 			}
 
-			// Write file content through LZ4
+			// ✅ 수정: Write file content through LZ4 (restore.go에서 예상하는 형식)
 			_, err = lz4Writer.Write(fileContent)
 			if err != nil {
 				fmt.Printf("Warning: failed to compress %s: %v\n", file.Path, err)
@@ -330,7 +330,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 	lz4Writer.Close()
 
 	// Calculate compression performance metrics
-	fileInfo, err := os.Stat(hotCachePath)
+	fileInfo, err := os.Stat(versionPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat compressed file: %w", err)
 	}
@@ -340,19 +340,19 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 
 	// 수정된 압축 검증 로직: 파일이 원본의 120%를 초과할 경우에만 오류
 	if originalSize == 0 {
-		os.Remove(hotCachePath)
+		os.Remove(versionPath)
 		return nil, fmt.Errorf("no data to compress")
 	}
 
 	compressionRatio := float64(compressedSize) / float64(originalSize)
 	if compressionRatio > 1.2 {
-		os.Remove(hotCachePath)
+		os.Remove(versionPath)
 		return nil, fmt.Errorf("compression failed: file became %.1f%% larger (from %d to %d bytes)",
 			(compressionRatio-1)*100, originalSize, compressedSize)
 	}
 
 	if compressedSize == 0 {
-		os.Remove(hotCachePath)
+		os.Remove(versionPath)
 		return nil, fmt.Errorf("compression failed: output file is empty")
 	}
 
@@ -365,12 +365,12 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 
 	return &CompressionResult{
 		Strategy:         "lz4",
-		OutputFile:       filepath.Base(hotCachePath),
+		OutputFile:       filepath.Base(versionPath),
 		OriginalSize:     originalSize,
 		CompressedSize:   compressedSize,
 		CompressionRatio: ratio,
 		CompressionTime:  compressionTime,
-		CacheLevel:       "hot",
+		CacheLevel:       "versions",
 		CreatedAt:        time.Now(),
 	}, nil
 }
@@ -379,25 +379,25 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 func (cm *CommitManager) createBsdiffDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	compressionStart := time.Now()
 
-	// Create temporary current version file in hot cache
-	tempCurrent := filepath.Join(cm.HotCacheDir, fmt.Sprintf("temp_v%d.lz4", version))
+	// Create temporary current version file in cache
+	tempCurrent := filepath.Join(cm.CacheDir, fmt.Sprintf("temp_v%d.lz4", version))
 	defer os.Remove(tempCurrent)
 
 	if err := cm.createTempLZ4File(files, tempCurrent); err != nil {
 		return nil, err
 	}
 
-	// Find base version file in cache hierarchy
-	basePath := cm.findVersionInCache(baseVersion)
+	// Find base version file in versions directory
+	basePath := cm.findVersionInStorage(baseVersion)
 	if basePath == "" {
 		return nil, fmt.Errorf("base v%d not found", baseVersion)
 	}
 
-	// Create delta file in hot cache
-	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
+	// Create delta file in cache
+	deltaPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
 
 	// Open files for delta compression
-	baseFile, err := cm.openCachedFile(basePath)
+	baseFile, err := cm.openStoredFile(basePath)
 	if err != nil {
 		return nil, err
 	}
@@ -431,36 +431,36 @@ func (cm *CommitManager) scheduleBackgroundOptimization(version int, result *Com
 	// Wait briefly to ensure user operations complete
 	time.Sleep(3 * time.Second)
 
-	// Move from hot cache (LZ4) to warm cache (Zstd) for better compression
-	cm.optimizeToWarmCache(version, result)
+	// Move from versions to cache for background optimization
+	cm.optimizeToCache(version, result)
 }
 
-// optimizeToWarmCache converts LZ4 hot cache to Zstd warm cache
-func (cm *CommitManager) optimizeToWarmCache(version int, result *CompressionResult) {
+// optimizeToCache converts LZ4 versions to optimized cache
+func (cm *CommitManager) optimizeToCache(version int, result *CompressionResult) {
 	if result.Strategy != "lz4" {
 		return
 	}
 
-	hotPath := filepath.Join(cm.HotCacheDir, result.OutputFile)
-	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
+	versionPath := filepath.Join(cm.VersionsDir, result.OutputFile)
+	cachePath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", version))
 
 	// Open LZ4 source file
-	hotFile, err := os.Open(hotPath)
+	versionFile, err := os.Open(versionPath)
 	if err != nil {
 		return
 	}
-	defer hotFile.Close()
+	defer versionFile.Close()
 
 	// Create Zstd destination file
-	warmFile, err := os.Create(warmPath)
+	cacheFile, err := os.Create(cachePath)
 	if err != nil {
 		return
 	}
-	defer warmFile.Close()
+	defer cacheFile.Close()
 
 	// LZ4 decompression → Zstd compression pipeline
-	lz4Reader := lz4.NewReader(hotFile)
-	zstdWriter, err := zstd.NewWriter(warmFile, zstd.WithEncoderLevel(zstd.SpeedDefault))
+	lz4Reader := lz4.NewReader(versionFile)
+	zstdWriter, err := zstd.NewWriter(cacheFile, zstd.WithEncoderLevel(zstd.SpeedDefault))
 	if err != nil {
 		return
 	}
@@ -511,7 +511,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 	cm.displayLayerChanges(changeAnalysis, baseVersion, version)
 
 	// Create smart delta with layer change information
-	deltaPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", version, baseVersion))
+	deltaPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", version, baseVersion))
 	deltaSize, err := cm.createSmartDeltaFile(deltaPath, psdFile, changeAnalysis, baseVersion, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create smart delta file: %w", err)
@@ -526,7 +526,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 		CompressedSize:   deltaSize,
 		CompressionRatio: float64(deltaSize) / float64(psdFile.Size),
 		CompressionTime:  compressionTime,
-		CacheLevel:       "hot",
+		CacheLevel:       "cache",
 		BaseVersion:      baseVersion,
 		CreatedAt:        time.Now(),
 	}, nil
@@ -563,16 +563,16 @@ func (cm *CommitManager) extractPSDLayerInfo(psdPath string) ([]DetailedLayer, e
 
 // extractPreviousVersionLayers extracts layer info from previous version
 func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath string) ([]DetailedLayer, error) {
-	// Find the previous version file in cache hierarchy
-	basePath := cm.findVersionInCache(baseVersion)
+	// Find the previous version file in storage hierarchy
+	basePath := cm.findVersionInStorage(baseVersion)
 	if basePath == "" {
-		return nil, fmt.Errorf("previous version v%d not found in cache", baseVersion)
+		return nil, fmt.Errorf("previous version v%d not found in storage", baseVersion)
 	}
 
 	fmt.Printf("Previous version found at: %s\n", basePath)
 
 	// Create temporary file to reconstruct the previous PSD
-	tempDir := filepath.Join(cm.ObjectsDir, "temp")
+	tempDir := filepath.Join(cm.CacheDir, "temp")
 	os.MkdirAll(tempDir, 0755)
 
 	tempPSDPath := filepath.Join(tempDir, fmt.Sprintf("temp_v%d.psd", baseVersion))
@@ -648,18 +648,24 @@ func (cm *CommitManager) loadConfig() {
 	}
 }
 
-// findVersionInCache searches for version file across 3-tier cache hierarchy
-func (cm *CommitManager) findVersionInCache(version int) string {
-	// Check hot cache first
-	hotPath := filepath.Join(cm.HotCacheDir, fmt.Sprintf("v%d.lz4", version))
-	if cm.fileExists(hotPath) {
-		return hotPath
+// findVersionInStorage searches for version file in simplified storage hierarchy
+func (cm *CommitManager) findVersionInStorage(version int) string {
+	// Check versions directory first
+	versionPath := filepath.Join(cm.VersionsDir, fmt.Sprintf("v%d.lz4", version))
+	if cm.fileExists(versionPath) {
+		return versionPath
 	}
 
-	// Check warm cache
-	warmPath := filepath.Join(cm.WarmCacheDir, fmt.Sprintf("v%d.zstd", version))
-	if cm.fileExists(warmPath) {
-		return warmPath
+	// Check cache directory
+	cachePath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d.lz4", version))
+	if cm.fileExists(cachePath) {
+		return cachePath
+	}
+
+	// Check optimized cache
+	optimizedPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", version))
+	if cm.fileExists(optimizedPath) {
+		return optimizedPath
 	}
 
 	// Check legacy objects
@@ -671,8 +677,8 @@ func (cm *CommitManager) findVersionInCache(version int) string {
 	return ""
 }
 
-// openCachedFile opens a cached file with appropriate decompression
-func (cm *CommitManager) openCachedFile(path string) (io.ReadCloser, error) {
+// openStoredFile opens a stored file with appropriate decompression
+func (cm *CommitManager) openStoredFile(path string) (io.ReadCloser, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -779,7 +785,7 @@ func (cm *CommitManager) calculateCompressionResult(strategy, outputFile string,
 		CompressedSize:   compressedSize,
 		CompressionRatio: float64(compressedSize) / float64(originalSize),
 		CompressionTime:  compressionTimeMs,
-		CacheLevel:       "hot",
+		CacheLevel:       "cache",
 		BaseVersion:      baseVersion,
 		CreatedAt:        time.Now(),
 	}, nil
@@ -810,20 +816,20 @@ func (cm *CommitManager) fileExists(path string) bool {
 
 // GetCurrentVersion returns the current version by scanning JSON metadata files
 func (cm *CommitManager) GetCurrentVersion() int {
-	entries, err := os.ReadDir(cm.ObjectsDir)
+	entries, err := os.ReadDir(cm.CommitsDir)
 	if err != nil {
 		return 0
 	}
-	maxVersion := 0 // max → maxVersion 변경
+	maxVersion := 0
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), "v") && strings.HasSuffix(e.Name(), ".json") {
 			n, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(e.Name(), "v"), ".json"))
-			if n > maxVersion { // max → maxVersion 변경
-				maxVersion = n // max → maxVersion 변경
+			if n > maxVersion {
+				maxVersion = n
 			}
 		}
 	}
-	return maxVersion // max → maxVersion 변경
+	return maxVersion
 }
 
 // generateCommitHash produces a secure 12-character SHA256-based hash
@@ -896,7 +902,7 @@ func (cm *CommitManager) scanFilesMetadata(files []*staging.StagedFile) (map[str
 
 // saveCommitMetadata writes commit metadata to JSON file
 func (cm *CommitManager) saveCommitMetadata(c *Commit) error {
-	path := filepath.Join(cm.ObjectsDir, fmt.Sprintf("v%d.json", c.Version))
+	path := filepath.Join(cm.CommitsDir, fmt.Sprintf("v%d.json", c.Version))
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal commit: %w", err)
