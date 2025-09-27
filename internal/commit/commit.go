@@ -202,10 +202,10 @@ func (cm *CommitManager) createSnapshot(files []*staging.StagedFile, version, pr
 	// Strategy 2: Smart Delta for compatible files
 	if version > 1 && !cm.shouldCreateNewSnapshot(prevVersion) {
 		deltaResult, err := cm.createDelta(files, version, prevVersion, startTime)
-		if err == nil && deltaResult.CompressionRatio <= cm.CompressionThreshold {
+		if err == nil && deltaResult.CompressionRatio <= 0.7 { // 70% threshold for efficiency
 			return deltaResult, nil
 		}
-		// Clean up failed delta and fallback to LZ4
+		// Clean up failed or inefficient delta and fallback to LZ4
 		if err == nil {
 			os.Remove(filepath.Join(cm.DeltaDir, deltaResult.OutputFile))
 		}
