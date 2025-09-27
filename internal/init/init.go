@@ -288,6 +288,13 @@ func (ri *RepositoryInitializer) createPerformanceMonitoring(dgitPath string) er
 
 	for _, logFile := range logFiles {
 		logPath := filepath.Join(dgitPath, logFile)
+
+		// Create directory for log file if it doesn't exist
+		logDir := filepath.Dir(logPath)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return fmt.Errorf("failed to create log directory %s: %w", logDir, err)
+		}
+
 		initialLog := fmt.Sprintf("# DGit Log - %s\n# Created: %s\n\n",
 			filepath.Base(logFile), time.Now().Format(time.RFC3339))
 
