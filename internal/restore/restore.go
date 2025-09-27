@@ -19,29 +19,29 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-// RestoreManager handles file restoration with 3-tier cache optimization
-// Provides cache optimization for improved performance
+// RestoreManager handles file restoration with simplified storage system
 type RestoreManager struct {
 	DgitDir    string
 	ObjectsDir string
 	DeltaDir   string
-	// 3-Tier Cache System for file restoration
-	HotCacheDir  string // LZ4 cache for fast restoration
-	WarmCacheDir string // Zstd cache for balanced performance
-	ColdCacheDir string // Archive cache for long-term storage
+
+	// Simplified Storage System (기존 3-tier 캐시에서 변경)
+	VersionsDir string // 메인 버전 저장소 (.dgit/versions/)
+	CommitsDir  string // 커밋 메타데이터 (.dgit/commits/)
+	CacheDir    string // 단일 캐시 디렉토리 (.dgit/cache/)
 }
 
-// NewRestoreManager creates a new restore manager with cache awareness
-// Initializes with 3-tier cache system for optimal restoration performance
+// NewRestoreManager creates a new restore manager with simplified structure
 func NewRestoreManager(dgitDir string) *RestoreManager {
 	objectsDir := filepath.Join(dgitDir, "objects")
 	return &RestoreManager{
-		DgitDir:      dgitDir,
-		ObjectsDir:   objectsDir,
-		DeltaDir:     filepath.Join(objectsDir, "deltas"),
-		HotCacheDir:  filepath.Join(dgitDir, "cache", "hot"),  // fast fast access
-		WarmCacheDir: filepath.Join(dgitDir, "cache", "warm"), // balanced balanced access
-		ColdCacheDir: filepath.Join(dgitDir, "cache", "cold"), // slower archive access
+		DgitDir:    dgitDir,
+		ObjectsDir: objectsDir,
+		DeltaDir:   filepath.Join(objectsDir, "deltas"),
+		// 새로운 폴더 구조
+		VersionsDir: filepath.Join(dgitDir, "versions"), // 기존 HotCacheDir 대신
+		CommitsDir:  filepath.Join(dgitDir, "commits"),  // 새로 추가
+		CacheDir:    filepath.Join(dgitDir, "cache"),    // 기존 WarmCacheDir, ColdCacheDir 통합
 	}
 }
 
@@ -99,7 +99,7 @@ func (rm *RestoreManager) RestoreFilesFromCommit(commitHashOrVersion string, fil
 }
 
 // performFastRestore intelligently chooses the fastest available restoration method
-// Priority: Hot Cache → Warm Cache → Smart Delta → Cold Cache → Legacy
+// Priority: Versions → Cache → Smart Delta → Legacy
 func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore []string, version int) (*RestoreResult, error) {
 	result := &RestoreResult{
 		SourceVersion:    commit.Version,
@@ -109,20 +109,20 @@ func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore 
 		ErrorFiles:       make(map[string]error),
 	}
 
-	// Priority 1: Hot Cache (LZ4) - fast access!
-	if hotCacheResult := rm.tryHotCacheRestore(commit, filesToRestore, result); hotCacheResult != nil {
-		return hotCacheResult, nil
+	// Priority 1: Versions Directory (LZ4) - 최우선!
+	if versionResult := rm.tryVersionRestore(commit, filesToRestore, result); versionResult != nil {
+		return versionResult, nil
 	}
 
-	// Priority 2: Warm Cache (Zstd) - balanced balanced access
-	if warmCacheResult := rm.tryWarmCacheRestore(commit, filesToRestore, result); warmCacheResult != nil {
-		return warmCacheResult, nil
+	// Priority 2: Cache Directory - 최적화된 접근
+	if cacheResult := rm.tryCacheRestore(commit, filesToRestore, result); cacheResult != nil {
+		return cacheResult, nil
 	}
 
 	// Priority 3: Smart Delta Reconstruction for design files
 	if commit.CompressionInfo != nil {
 		switch commit.CompressionInfo.Strategy {
-		case "psd_smart_delta":
+		case "psd_smart":
 			fmt.Println("Using smart PSD delta restoration...")
 			result.RestoreMethod = "smart_delta"
 			result.CacheHitLevel = "smart"
@@ -145,11 +145,6 @@ func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore 
 		}
 	}
 
-	// Priority 4: Cold Cache/Archive access
-	if coldCacheResult := rm.tryColdCacheRestore(commit, filesToRestore, result); coldCacheResult != nil {
-		return coldCacheResult, nil
-	}
-
 	// Fallback: Legacy ZIP restoration for backward compatibility
 	if commit.SnapshotZip != "" {
 		fmt.Println("Using legacy ZIP restoration...")
@@ -161,75 +156,62 @@ func (rm *RestoreManager) performFastRestore(commit *log.Commit, filesToRestore 
 	return result, fmt.Errorf("no restoration method available for version %d", version)
 }
 
-// tryHotCacheRestore attempts fast restoration from LZ4 hot cache (fast!)
-// Provides the fast restoration when files are in hot cache
-func (rm *RestoreManager) tryHotCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
+// tryVersionRestore attempts fast restoration from versions directory (기존 tryVersionRestore)
+func (rm *RestoreManager) tryVersionRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
 	if commit.CompressionInfo == nil || commit.CompressionInfo.Strategy != "lz4" {
 		return nil
 	}
 
-	hotCachePath := filepath.Join(rm.HotCacheDir, commit.CompressionInfo.OutputFile)
-	if !rm.fileExists(hotCachePath) {
+	versionPath := filepath.Join(rm.VersionsDir, commit.CompressionInfo.OutputFile)
+	if !rm.fileExists(versionPath) {
 		return nil
 	}
 
-	fmt.Println("Using hot cache (LZ4) - fast access!")
-	result.RestoreMethod = "hot_cache"
-	result.CacheHitLevel = "hot"
+	fmt.Println("Using versions directory - fast access!")
+	result.RestoreMethod = "versions"
+	result.CacheHitLevel = "versions"
 
-	// Extract from LZ4 hot cache with optimized performance
-	if err := rm.extractFromLZ4Cache(hotCachePath, filesToRestore, result); err != nil {
-		return nil
-	}
-
-	return result
-}
-
-// tryWarmCacheRestore attempts restoration from Zstd warm cache (balanced)
-// Provides good balance of speed and compression when hot cache misses
-func (rm *RestoreManager) tryWarmCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
-	// Check for warm cache version with better compression ratios
-	warmCachePath := filepath.Join(rm.WarmCacheDir, fmt.Sprintf("v%d.zstd", commit.Version))
-	if !rm.fileExists(warmCachePath) {
-		return nil
-	}
-
-	fmt.Println("Using warm cache (Zstd) - balanced access!")
-	result.RestoreMethod = "warm_cache"
-	result.CacheHitLevel = "warm"
-
-	// Extract from Zstd warm cache with balanced performance
-	if err := rm.extractFromZstdCache(warmCachePath, filesToRestore, result); err != nil {
+	// Extract from LZ4 versions directory
+	if err := rm.extractFromLZ4(versionPath, filesToRestore, result); err != nil {
 		return nil
 	}
 
 	return result
 }
 
-// tryColdCacheRestore attempts restoration from archive cold cache
-// Last resort cache option before falling back to legacy methods
-func (rm *RestoreManager) tryColdCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
-	// Check for cold cache archive with maximum compression
-	coldCachePath := filepath.Join(rm.ColdCacheDir, fmt.Sprintf("v%d.archive.zstd", commit.Version))
-	if !rm.fileExists(coldCachePath) {
-		return nil
+// tryCacheRestore attempts restoration from cache directory (기존 tryCacheRestore)
+func (rm *RestoreManager) tryCacheRestore(commit *log.Commit, filesToRestore []string, result *RestoreResult) *RestoreResult {
+	// Check for cache version
+	cachePath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d.lz4", commit.Version))
+	if !rm.fileExists(cachePath) {
+		// Check for optimized cache version
+		cachePath = filepath.Join(rm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", commit.Version))
+		if !rm.fileExists(cachePath) {
+			return nil
+		}
 	}
 
-	fmt.Println("Using cold cache (Archive) - background access...")
-	result.RestoreMethod = "cold_cache"
-	result.CacheHitLevel = "cold"
+	fmt.Println("Using cache directory - optimized access!")
+	result.RestoreMethod = "cache"
+	result.CacheHitLevel = "cache"
 
-	// Extract from cold archive with acceptable performance
-	if err := rm.extractFromColdArchive(coldCachePath, filesToRestore, result); err != nil {
+	// Extract from cache with appropriate decompression
+	var err error
+	if strings.HasSuffix(cachePath, ".lz4") {
+		err = rm.extractFromLZ4(cachePath, filesToRestore, result)
+	} else if strings.HasSuffix(cachePath, ".zstd") {
+		err = rm.extractFromZstd(cachePath, filesToRestore, result)
+	}
+
+	if err != nil {
 		return nil
 	}
 
 	return result
 }
 
-// extractFromLZ4Cache extracts files from LZ4 hot cache with fast performance
-// Optimized for maximum speed with streamlined decompression
-func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []string, result *RestoreResult) error {
+// extractFromLZ4 extracts files from LZ4 storage with fast performance (기존 extractFromLZ4)
+func (rm *RestoreManager) extractFromLZ4(lz4Path string, filesToRestore []string, result *RestoreResult) error {
 	// Extract version number from LZ4 filename (e.g., v1.lz4 → 1)
 	fileName := filepath.Base(lz4Path)
 	versionStr := strings.TrimSuffix(strings.TrimPrefix(fileName, "v"), ".lz4")
@@ -248,7 +230,7 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 	// Open LZ4 file for fast decompression
 	file, err := os.Open(lz4Path)
 	if err != nil {
-		return fmt.Errorf("failed to open LZ4 cache: %w", err)
+		return fmt.Errorf("failed to open LZ4 file: %w", err)
 	}
 	defer file.Close()
 
@@ -269,7 +251,7 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 		return fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	// 수정: 모든 파일을 처리하도록 break 제거
+	// Process all files from structured LZ4 stream
 	processedFiles := 0
 	for fileName := range commit.Metadata {
 		// Check if this file should be restored based on user request
@@ -290,50 +272,20 @@ func (rm *RestoreManager) extractFromLZ4Cache(lz4Path string, filesToRestore []s
 		// Create target file path in working directory
 		targetPath := filepath.Join(currentWorkDir, fileName)
 
-		// Create file from decompressed data
-		if err := rm.createFileFromData(targetPath, decompressedData); err != nil {
+		// Create file from decompressed data using structured format
+		if err := rm.createFileFromStructuredData(targetPath, decompressedData, fileName); err != nil {
 			result.ErrorFiles[fileName] = err
 		} else {
 			result.RestoredFiles = append(result.RestoredFiles, fileName)
-			fmt.Printf("Restored %s (%d bytes)\n", fileName, len(decompressedData))
+			fmt.Printf("Restored %s\n", fileName)
 		}
 
 		processedFiles++
 	}
 
-	// 로그 개선: 처리된 파일 수 표시
-	fmt.Printf("Processed %d files from hot cache\n", processedFiles)
-
+	fmt.Printf("Processed %d files from storage\n", processedFiles)
 	result.TotalFilesCount = len(result.RestoredFiles) + len(result.SkippedFiles) + len(result.ErrorFiles)
 	return nil
-}
-
-// extractFromZstdCache extracts files from Zstd warm cache with balanced performance
-// Provides good compression ratios while maintaining reasonable access speed
-func (rm *RestoreManager) extractFromZstdCache(zstdPath string, filesToRestore []string, result *RestoreResult) error {
-	// Open Zstd file for decompression
-	file, err := os.Open(zstdPath)
-	if err != nil {
-		return fmt.Errorf("failed to open Zstd cache: %w", err)
-	}
-	defer file.Close()
-
-	// Create Zstd reader for efficient decompression
-	zstdReader, err := zstd.NewReader(file)
-	if err != nil {
-		return fmt.Errorf("failed to create Zstd reader: %w", err)
-	}
-	defer zstdReader.Close()
-
-	// Extract files from Zstd stream with balanced performance
-	return rm.extractFilesFromStream(zstdReader, filesToRestore, result, zstdPath)
-}
-
-// extractFromColdArchive extracts files from cold archive with maximum compression
-// Slower access but provides best compression ratios for long-term storage
-func (rm *RestoreManager) extractFromColdArchive(archivePath string, filesToRestore []string, result *RestoreResult) error {
-	// Cold archive uses high-compression Zstd format
-	return rm.extractFromZstdCache(archivePath, filesToRestore, result)
 }
 
 // extractFilesFromStream extracts files from LZ4/Zstd stream format efficiently
@@ -439,22 +391,19 @@ func (rm *RestoreManager) createFileFromData(filePath string, data []byte) error
 }
 
 // restoreFromSmartDelta restores from smart delta compression (PSD/Design optimized)
-// Handles design-specific delta formats with metadata awareness
 func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToRestore []string, result *RestoreResult) (*RestoreResult, error) {
 	if commit.CompressionInfo == nil {
 		return result, fmt.Errorf("no compression info in commit")
 	}
 
-	deltaPath := filepath.Join(rm.HotCacheDir, commit.CompressionInfo.OutputFile)
+	// Check cache directory for smart delta file
+	deltaPath := filepath.Join(rm.CacheDir, commit.CompressionInfo.OutputFile)
 
 	if !rm.fileExists(deltaPath) {
-		// Try other cache levels
-		deltaPath = filepath.Join(rm.WarmCacheDir, commit.CompressionInfo.OutputFile)
+		// Try versions directory as fallback
+		deltaPath = filepath.Join(rm.VersionsDir, commit.CompressionInfo.OutputFile)
 		if !rm.fileExists(deltaPath) {
-			deltaPath = filepath.Join(rm.ColdCacheDir, commit.CompressionInfo.OutputFile)
-			if !rm.fileExists(deltaPath) {
-				return result, fmt.Errorf("smart delta file not found: %s", commit.CompressionInfo.OutputFile)
-			}
+			return result, fmt.Errorf("smart delta file not found: %s", commit.CompressionInfo.OutputFile)
 		}
 	}
 
@@ -516,10 +465,9 @@ func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToResto
 		return result, fmt.Errorf("missing from_version in metadata")
 	}
 
-	// 실제로 베이스 버전이 존재하는지 확인
+	// Check if base version exists
 	if int(baseVersion) > 0 {
-		// 베이스 버전 파일이 캐시나 objects에 있는지 확인
-		baseVersionPath := filepath.Join(rm.ObjectsDir, fmt.Sprintf("v%d.json", int(baseVersion)))
+		baseVersionPath := filepath.Join(rm.CommitsDir, fmt.Sprintf("v%d.json", int(baseVersion)))
 		if !rm.fileExists(baseVersionPath) {
 			fmt.Printf("Warning: base version v%d metadata not found\n", int(baseVersion))
 		}
@@ -565,7 +513,6 @@ func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToResto
 	}
 
 	// For PSD smart delta, the decompressed data is the complete new file
-	// (The delta creation in commit.go stores the full file with change metadata)
 	targetPath := filepath.Join(currentWorkDir, filePath)
 
 	// Create directory if needed
@@ -589,7 +536,6 @@ func (rm *RestoreManager) restoreFromSmartDelta(commit *log.Commit, filesToResto
 			fmt.Printf("Layer changes applied: %s\n", summary)
 		}
 
-		// Display detailed changes if available
 		if addedLayers, ok := layerAnalysis["added_layers"].([]interface{}); ok && len(addedLayers) > 0 {
 			fmt.Printf("  Added %d layers\n", len(addedLayers))
 		}
@@ -628,32 +574,43 @@ func (rm *RestoreManager) restoreFromOptimizedDeltaChain(targetVersion int, file
 	return rm.extractFilesFromZip(tempFile, filesToRestore, result)
 }
 
-// findOptimizedRestorationPath finds fastest restoration path using cache hierarchy
-// Prioritizes hot cache → warm cache → legacy objects for optimal performance
+// findOptimizedRestorationPath finds fastest restoration path using simplified storage hierarchy
 func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]RestorationStep, error) {
 	var path []RestorationStep
 	currentVersion := targetVersion
 
-	// Work backwards with cache optimization prioritization
+	// Work backwards with simplified storage prioritization
 	for currentVersion > 0 {
-		// Priority 1: Check hot cache first (LZ4) for instant access
-		hotPath := filepath.Join(rm.HotCacheDir, fmt.Sprintf("v%d.lz4", currentVersion))
-		if rm.fileExists(hotPath) {
+		// Priority 1: Check versions directory first (LZ4) for instant access
+		versionPath := filepath.Join(rm.VersionsDir, fmt.Sprintf("v%d.lz4", currentVersion))
+		if rm.fileExists(versionPath) {
 			step := RestorationStep{
 				Type:    "lz4",
-				File:    hotPath,
+				File:    versionPath,
 				Version: currentVersion,
 			}
 			path = append([]RestorationStep{step}, path...)
 			break
 		}
 
-		// Priority 2: Check warm cache (Zstd) for balanced performance
-		warmPath := filepath.Join(rm.WarmCacheDir, fmt.Sprintf("v%d.zstd", currentVersion))
-		if rm.fileExists(warmPath) {
+		// Priority 2: Check cache directory for optimized files
+		cachePath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d.lz4", currentVersion))
+		if rm.fileExists(cachePath) {
+			step := RestorationStep{
+				Type:    "lz4",
+				File:    cachePath,
+				Version: currentVersion,
+			}
+			path = append([]RestorationStep{step}, path...)
+			break
+		}
+
+		// Check for optimized cache version
+		optimizedPath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", currentVersion))
+		if rm.fileExists(optimizedPath) {
 			step := RestorationStep{
 				Type:    "zstd",
-				File:    warmPath,
+				File:    optimizedPath,
 				Version: currentVersion,
 			}
 			path = append([]RestorationStep{step}, path...)
@@ -685,8 +642,8 @@ func (rm *RestoreManager) findOptimizedRestorationPath(targetVersion int) ([]Res
 			continue
 		}
 
-		// Check for smart delta files (design-specific)
-		smartDeltaPath := filepath.Join(rm.HotCacheDir, fmt.Sprintf("v%d_from_v%d.smart_psd_delta", currentVersion, currentVersion-1))
+		// Check for smart delta files (design-specific) in cache
+		smartDeltaPath := filepath.Join(rm.CacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", currentVersion, currentVersion-1))
 		if rm.fileExists(smartDeltaPath) {
 			step := RestorationStep{
 				Type:    "smart_delta",
@@ -1296,4 +1253,86 @@ func (rm *RestoreManager) applyBsdiffPatch(oldFile, patchFile, newFile string) e
 	}
 
 	return nil
+}
+
+// extractFromZstd extracts files from Zstd cache with balanced performance
+func (rm *RestoreManager) extractFromZstd(zstdPath string, filesToRestore []string, result *RestoreResult) error {
+	// Open Zstd file for decompression
+	file, err := os.Open(zstdPath)
+	if err != nil {
+		return fmt.Errorf("failed to open Zstd file: %w", err)
+	}
+	defer file.Close()
+
+	// Create Zstd reader for efficient decompression
+	zstdReader, err := zstd.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create Zstd reader: %w", err)
+	}
+	defer zstdReader.Close()
+
+	// Extract files from Zstd stream
+	return rm.extractFilesFromStream(zstdReader, filesToRestore, result, zstdPath)
+}
+
+// createFileFromStructuredData creates a file from structured LZ4/Zstd data
+func (rm *RestoreManager) createFileFromStructuredData(filePath string, data []byte, targetFileName string) error {
+	// Parse structured data to find target file
+	content := string(data)
+	pos := 0
+
+	for pos < len(content) {
+		// Find file header line
+		headerEnd := strings.Index(content[pos:], "\n")
+		if headerEnd == -1 {
+			break
+		}
+		headerEnd += pos
+
+		headerLine := content[pos:headerEnd]
+		if !strings.HasPrefix(headerLine, "FILE:") {
+			pos = headerEnd + 1
+			continue
+		}
+
+		// Parse header: "FILE:path:size"
+		parts := strings.Split(headerLine, ":")
+		if len(parts) != 3 {
+			pos = headerEnd + 1
+			continue
+		}
+
+		fileName := parts[1]
+		fileSize, err := strconv.ParseInt(parts[2], 10, 64)
+		if err != nil || fileSize <= 0 {
+			pos = headerEnd + 1
+			continue
+		}
+
+		// Check if this is our target file
+		if fileName == targetFileName || filepath.Base(fileName) == filepath.Base(targetFileName) {
+			// Extract file data
+			fileDataStart := headerEnd + 1
+			fileDataEnd := fileDataStart + int(fileSize)
+
+			if fileDataEnd > len(data) {
+				return fmt.Errorf("file data exceeds available data")
+			}
+
+			fileData := data[fileDataStart:fileDataEnd]
+
+			// Create target directory if needed
+			if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+
+			// Write file
+			return os.WriteFile(filePath, fileData, 0644)
+		}
+
+		// Skip to next file
+		pos = headerEnd + 1 + int(fileSize)
+	}
+
+	return fmt.Errorf("file not found in structured data: %s", targetFileName)
 }
