@@ -106,9 +106,7 @@ func (ri *RepositoryInitializer) InitializeRepository(path string) error {
 		return fmt.Errorf("failed to create configuration: %w", err)
 	}
 
-	if err := ri.createPerformanceMonitoring(dgitPath); err != nil {
-		return fmt.Errorf("failed to create performance monitoring: %w", err)
-	}
+	// Performance monitoring removed for simplicity
 
 	if err := ri.createInitialHead(dgitPath); err != nil {
 		return fmt.Errorf("failed to create HEAD file: %w", err)
@@ -123,26 +121,12 @@ func (ri *RepositoryInitializer) createStructure(dgitPath string) error {
 		return err
 	}
 
-	// Simplified Structure
 	subdirs := []string{
-		// Main Storage Directories
-		"versions",       // Primary version storage
-		"commits",        // Commit metadata
-		"cache",          // Single cache directory
-		"cache/temp",     // Temporary compression files
-		"cache/metadata", // Cache metadata
-
-		// Working Areas
+		"snapshots",
+		"deltas",
+		"commits",
+		"temp",
 		"staging",
-
-		// System Directories
-		"temp",  // Temporary workspace
-		"refs",  // Reference information
-		"hooks", // Hook scripts
-
-		// Performance Monitoring
-		"logs",
-		"metrics",
 	}
 
 	for _, subdir := range subdirs {
@@ -162,9 +146,9 @@ func (ri *RepositoryInitializer) createStructure(dgitPath string) error {
 // createIndexes creates lookup indexes
 func (ri *RepositoryInitializer) createCacheIndexes(dgitPath string) error {
 	indexes := map[string]interface{}{
-		"cache/metadata/index.json": make(map[string]interface{}),
-		"versions/index.json":       make(map[string]interface{}),
-		"commits/index.json":        make(map[string]interface{}),
+		"snapshots/index.json": make(map[string]interface{}),
+		"deltas/index.json":    make(map[string]interface{}),
+		"commits/index.json":   make(map[string]interface{}),
 	}
 
 	for indexPath, indexData := range indexes {
@@ -278,30 +262,7 @@ func (ri *RepositoryInitializer) createPerformanceMonitoring(dgitPath string) er
 		return fmt.Errorf("failed to create performance summary: %w", err)
 	}
 
-	logFiles := []string{
-		"logs/compression/lz4.log",
-		"logs/compression/zstd.log",
-		"logs/cache/hits.log",
-		"logs/cache/evictions.log",
-		"logs/performance.log",
-	}
-
-	for _, logFile := range logFiles {
-		logPath := filepath.Join(dgitPath, logFile)
-
-		// Create directory for log file if it doesn't exist
-		logDir := filepath.Dir(logPath)
-		if err := os.MkdirAll(logDir, 0755); err != nil {
-			return fmt.Errorf("failed to create log directory %s: %w", logDir, err)
-		}
-
-		initialLog := fmt.Sprintf("# DGit Log - %s\n# Created: %s\n\n",
-			filepath.Base(logFile), time.Now().Format(time.RFC3339))
-
-		if err := os.WriteFile(logPath, []byte(initialLog), 0644); err != nil {
-			return fmt.Errorf("failed to create log file %s: %w", logFile, err)
-		}
-	}
+	// Removed unnecessary log files
 
 	return nil
 }
@@ -323,9 +284,9 @@ func IsDGitRepository(path string) bool {
 		return false
 	}
 
-	// Check for essential directories in new structure
-	versionsPath := filepath.Join(dgitPath, "versions")
-	if info, err := os.Stat(versionsPath); err != nil || !info.IsDir() {
+	// Check for essential directories
+	snapshotsPath := filepath.Join(dgitPath, "snapshots")
+	if info, err := os.Stat(snapshotsPath); err != nil || !info.IsDir() {
 		return false
 	}
 
