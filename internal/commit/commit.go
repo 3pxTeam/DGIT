@@ -19,8 +19,8 @@ import (
 	"dgit/internal/staging"
 
 	// Compression Libraries
+	"github.com/gabstv/go-bsdiff/pkg/bsdiff"
 	"github.com/klauspost/compress/zstd"
-	"github.com/kr/binarydist"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -71,12 +71,11 @@ type CommitManager struct {
 	ObjectsDir string
 	HeadFile   string
 	ConfigFile string
-	DeltaDir   string
 
-	// Simplified Storage System
-	VersionsDir string // Main version storage directory
-	CommitsDir  string // Commit metadata directory
-	CacheDir    string // Single cache directory
+	SnapshotsDir string
+	DeltasDir    string
+	CommitsDir   string
+	TempDir      string
 
 	// Compression optimization settings
 	MaxDeltaChainLength  int
@@ -89,34 +88,35 @@ type CommitManager struct {
 
 // NewCommitManager creates a new commit manager with simplified structure
 func NewCommitManager(dgitDir string) *CommitManager {
-	objectsDir := filepath.Join(dgitDir, "objects")
-	deltaDir := filepath.Join(objectsDir, "deltas")
+	objectsDir := filepath.Join(dgitDir, "objects") // 레거시 호환
 
-	// Simplified Storage System
-	versionsDir := filepath.Join(dgitDir, "versions")
+	snapshotsDir := filepath.Join(dgitDir, "snapshots")
+	deltasDir := filepath.Join(dgitDir, "deltas")
 	commitsDir := filepath.Join(dgitDir, "commits")
-	cacheDir := filepath.Join(dgitDir, "cache")
+	tempDir := filepath.Join(dgitDir, "temp")
 
 	// Ensure all directories exist
 	os.MkdirAll(objectsDir, 0755)
-	os.MkdirAll(deltaDir, 0755)
-	os.MkdirAll(versionsDir, 0755)
+	os.MkdirAll(snapshotsDir, 0755)
+	os.MkdirAll(deltasDir, 0755)
 	os.MkdirAll(commitsDir, 0755)
-	os.MkdirAll(cacheDir, 0755)
+	os.MkdirAll(tempDir, 0755)
 
 	cm := &CommitManager{
-		DgitDir:              dgitDir,
-		ObjectsDir:           objectsDir,
-		HeadFile:             filepath.Join(dgitDir, "HEAD"),
-		ConfigFile:           filepath.Join(dgitDir, "config"),
-		DeltaDir:             deltaDir,
-		VersionsDir:          versionsDir,
-		CommitsDir:           commitsDir,
-		CacheDir:             cacheDir,
+		DgitDir:    dgitDir,
+		ObjectsDir: objectsDir,
+		HeadFile:   filepath.Join(dgitDir, "HEAD"),
+		ConfigFile: filepath.Join(dgitDir, "config"),
+
+		SnapshotsDir: snapshotsDir,
+		DeltasDir:    deltasDir,
+		CommitsDir:   commitsDir,
+		TempDir:      tempDir,
+
 		MaxDeltaChainLength:  5,
-		CompressionThreshold: 0.3,
+		CompressionThreshold: 0.95,
 		lz4CompressionLevel:  1,
-		enableBackgroundOpt:  true,
+		enableBackgroundOpt:  false,
 	}
 
 	cm.loadConfig()
@@ -202,12 +202,16 @@ func (cm *CommitManager) createSnapshot(files []*staging.StagedFile, version, pr
 	// Strategy 2: Smart Delta for compatible files
 	if version > 1 && !cm.shouldCreateNewSnapshot(prevVersion) {
 		deltaResult, err := cm.createDelta(files, version, prevVersion, startTime)
-		if err == nil && deltaResult.CompressionRatio <= 0.7 { // 70% threshold for efficiency
+		if err != nil {
+			fmt.Printf("Delta creation failed: %v\n", err)
+			fmt.Printf("Falling back to LZ4 compression...\n")
+		} else if deltaResult.CompressionRatio <= cm.CompressionThreshold {
 			return deltaResult, nil
-		}
-		// Clean up failed or inefficient delta and fallback to LZ4
-		if err == nil {
-			os.Remove(filepath.Join(cm.DeltaDir, deltaResult.OutputFile))
+		} else {
+			fmt.Printf("Delta compression ratio %.1f%% exceeds threshold %.1f%%\n",
+				deltaResult.CompressionRatio*100, cm.CompressionThreshold*100)
+			fmt.Printf("Falling back to LZ4 compression...\n")
+			os.Remove(filepath.Join(cm.DeltasDir, deltaResult.OutputFile))
 		}
 	}
 
@@ -222,8 +226,15 @@ func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) 
 	}
 
 	for _, file := range files {
-		// Large files benefit more from delta compression
-		if file.Size > SmallFileThreshold { // 50*1024*1024 → SmallFileThreshold
+		// Very large files: use LZ4 snapshot (bsdiff is too slow)
+		if file.Size > 100*1024*1024 { // 100MB
+			fmt.Printf("Very large file detected (%s, %.1f MB) - creating new snapshot\n",
+				filepath.Base(file.Path), float64(file.Size)/(1024*1024))
+			return true
+		}
+
+		// Medium files: use delta compression
+		if file.Size > SmallFileThreshold { // 50MB
 			fmt.Printf("Large file detected (%s, %.1f MB) - using delta compression\n",
 				filepath.Base(file.Path), float64(file.Size)/(1024*1024))
 			return false
@@ -231,8 +242,6 @@ func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) 
 
 		ext := strings.ToLower(filepath.Ext(file.Path))
 		if ext == ".psd" || ext == ".ai" || ext == ".sketch" {
-			fmt.Printf("Design file detected (%s) - using smart delta compression\n",
-				filepath.Base(file.Path))
 			return false
 		}
 	}
@@ -242,29 +251,13 @@ func (cm *CommitManager) shouldUseLZ4(files []*staging.StagedFile, version int) 
 
 // createDelta creates smart delta compression for design files
 func (cm *CommitManager) createDelta(files []*staging.StagedFile, version, baseVersion int, startTime time.Time) (*CompressionResult, error) {
-	// Select optimal delta algorithm based on file types
-	algorithm := cm.selectDeltaAlgorithm(files)
-
-	switch algorithm {
-	case "psd_smart":
-		return cm.createPSDSmartDelta(files, version, baseVersion)
-	case "bsdiff":
-		return cm.createBsdiffDelta(files, version, baseVersion)
-	default:
-		return nil, fmt.Errorf("no suitable delta algorithm")
-	}
+	// Use bsdiff for all delta compression
+	return cm.createBsdiffDelta(files, version, baseVersion)
 }
 
 // selectDeltaAlgorithm chooses optimal delta compression method
 func (cm *CommitManager) selectDeltaAlgorithm(files []*staging.StagedFile) string {
-	// Check for PSD files (use intelligent PSD-specific delta)
-	for _, f := range files {
-		if strings.ToLower(filepath.Ext(f.Path)) == ".psd" {
-			return "psd_smart"
-		}
-	}
-
-	// For other design files, use optimized bsdiff
+	// Use bsdiff for all design files
 	return "bsdiff"
 }
 
@@ -273,7 +266,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 	compressionStartTime := time.Now()
 
 	// Store in versions directory for immediate access
-	versionPath := filepath.Join(cm.VersionsDir, fmt.Sprintf("v%d.lz4", version))
+	versionPath := filepath.Join(cm.SnapshotsDir, fmt.Sprintf("v%d.lz4", version))
 
 	// Create LZ4 compressed file
 	outFile, err := os.Create(versionPath)
@@ -370,7 +363,7 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 		CompressedSize:   compressedSize,
 		CompressionRatio: ratio,
 		CompressionTime:  compressionTime,
-		CacheLevel:       "versions",
+		CacheLevel:       "snapshots",
 		CreatedAt:        time.Now(),
 	}, nil
 }
@@ -378,52 +371,116 @@ func (cm *CommitManager) compressWithLZ4(files []*staging.StagedFile, version in
 // Background optimization system for improved compression ratios
 
 // createBsdiffDelta creates binary diff delta compression
-func (cm *CommitManager) createBsdiffDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
+func (cm *CommitManager) createBsdiffDelta(
+	files []*staging.StagedFile,
+	version, baseVersion int,
+) (*CompressionResult, error) {
 	compressionStart := time.Now()
 
-	// Create temporary current version file in cache
-	tempCurrent := filepath.Join(cm.CacheDir, fmt.Sprintf("temp_v%d.lz4", version))
-	defer os.Remove(tempCurrent)
+	fmt.Printf("Creating bsdiff delta: v%d from v%d\n", version, baseVersion)
 
-	if err := cm.createTempLZ4File(files, tempCurrent); err != nil {
-		return nil, err
+	// Step 1: Create temporary ZIP from current files (uncompressed originals)
+	tempCurrentZip := filepath.Join(cm.TempDir, fmt.Sprintf("temp_current_v%d.zip", version))
+	defer os.Remove(tempCurrentZip)
+
+	fmt.Printf("  Creating temporary current version ZIP...\n")
+	if err := cm.createTempZipFile(files, tempCurrentZip); err != nil {
+		return nil, fmt.Errorf("failed to create current temp ZIP: %w", err)
 	}
 
-	// Find base version file in versions directory
+	currentZipSize, _ := getFileSize(tempCurrentZip)
+	fmt.Printf("  Current version ZIP: %.2f MB\n", float64(currentZipSize)/(1024*1024))
+
+	// Step 2: Find and convert base version to ZIP
 	basePath := cm.findVersionInStorage(baseVersion)
 	if basePath == "" {
-		return nil, fmt.Errorf("base v%d not found", baseVersion)
+		return nil, fmt.Errorf("base version v%d not found", baseVersion)
 	}
 
-	// Create delta file in cache
-	deltaPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
+	tempBaseZip := filepath.Join(cm.TempDir, fmt.Sprintf("temp_base_v%d.zip", baseVersion))
+	defer os.Remove(tempBaseZip)
 
-	// Open files for delta compression
-	baseFile, err := cm.openStoredFile(basePath)
+	fmt.Printf("  Converting base version from %s...\n", filepath.Base(basePath))
+	if err := cm.convertToZip(basePath, tempBaseZip); err != nil {
+		return nil, fmt.Errorf("failed to convert base to ZIP: %w", err)
+	}
+
+	baseZipSize, _ := getFileSize(tempBaseZip)
+	fmt.Printf("  Base version ZIP: %.2f MB\n", float64(baseZipSize)/(1024*1024))
+
+	// Create smart delta with layer change information
+	deltaPath := filepath.Join(cm.DeltasDir, fmt.Sprintf("v%d_from_v%d.psd_smart", version, baseVersion))
+
+	fmt.Printf("  Computing binary delta...\n")
+	baseFile, err := os.Open(tempBaseZip)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open base ZIP: %w", err)
 	}
 	defer baseFile.Close()
 
-	currentFile, err := os.Open(tempCurrent)
+	currentFile, err := os.Open(tempCurrentZip)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open current ZIP: %w", err)
 	}
 	defer currentFile.Close()
 
 	deltaFile, err := os.Create(deltaPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create delta file: %w", err)
 	}
 	defer deltaFile.Close()
 
-	// Create bsdiff delta
-	if err := binarydist.Diff(baseFile, currentFile, deltaFile); err != nil {
-		return nil, fmt.Errorf("bsdiff delta failed: %w", err)
+	// Create the delta using Reader
+	oldData, err := io.ReadAll(baseFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read base file: %w", err)
+	}
+
+	newData, err := io.ReadAll(currentFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read current file: %w", err)
+	}
+
+	patch, err := bsdiff.Bytes(oldData, newData)
+	if err != nil {
+		return nil, fmt.Errorf("bsdiff delta creation failed: %w", err)
+	}
+
+	if _, err := deltaFile.Write(patch); err != nil {
+		return nil, fmt.Errorf("failed to write patch: %w", err)
+	}
+
+	deltaFile.Close() // Ensure file is closed before stat
+
+	// Step 4: Calculate results
+	deltaSize, err := getFileSize(deltaPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat delta file: %w", err)
+	}
+
+	var originalSize int64
+	for _, f := range files {
+		originalSize += f.Size
 	}
 
 	compressionTime := float64(time.Since(compressionStart).Nanoseconds()) / 1000000.0
-	return cm.calculateCompressionResult("bsdiff", deltaPath, files, baseVersion, compressionTime)
+	compressionRatio := float64(deltaSize) / float64(originalSize)
+
+	fmt.Printf("  ✓ Delta created: %.2f MB (%.1f%% of original)\n",
+		float64(deltaSize)/(1024*1024),
+		compressionRatio*100)
+
+	return &CompressionResult{
+		Strategy:         "bsdiff",
+		OutputFile:       filepath.Base(deltaPath),
+		OriginalSize:     originalSize,
+		CompressedSize:   deltaSize,
+		CompressionRatio: compressionRatio,
+		CompressionTime:  compressionTime,
+		CacheLevel:       "snapshots",
+		BaseVersion:      baseVersion,
+		CreatedAt:        time.Now(),
+	}, nil
 }
 
 // Background optimization system for improved compression ratios
@@ -443,8 +500,8 @@ func (cm *CommitManager) optimizeToCache(version int, result *CompressionResult)
 		return
 	}
 
-	versionPath := filepath.Join(cm.VersionsDir, result.OutputFile)
-	cachePath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", version))
+	versionPath := filepath.Join(cm.SnapshotsDir, result.OutputFile)
+	cachePath := filepath.Join(cm.DeltasDir, fmt.Sprintf("v%d_optimized.zstd", version))
 
 	// Open LZ4 source file
 	versionFile, err := os.Open(versionPath)
@@ -513,7 +570,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 	cm.displayLayerChanges(changeAnalysis, baseVersion, version)
 
 	// Create smart delta with layer change information
-	deltaPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_from_v%d.psd_smart", version, baseVersion))
+	deltaPath := filepath.Join(cm.DeltasDir, fmt.Sprintf("v%d_from_v%d.bsdiff", version, baseVersion))
 	deltaSize, err := cm.createSmartDeltaFile(deltaPath, psdFile, changeAnalysis, baseVersion, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create smart delta file: %w", err)
@@ -528,7 +585,7 @@ func (cm *CommitManager) createPSDSmartDelta(files []*staging.StagedFile, versio
 		CompressedSize:   deltaSize,
 		CompressionRatio: float64(deltaSize) / float64(psdFile.Size),
 		CompressionTime:  compressionTime,
-		CacheLevel:       "cache",
+		CacheLevel:       "deltas",
 		BaseVersion:      baseVersion,
 		CreatedAt:        time.Now(),
 	}, nil
@@ -574,7 +631,7 @@ func (cm *CommitManager) extractPreviousVersionLayers(baseVersion int, filePath 
 	fmt.Printf("Previous version found at: %s\n", basePath)
 
 	// Create temporary file to reconstruct the previous PSD
-	tempDir := filepath.Join(cm.CacheDir, "temp")
+	tempDir := filepath.Join(cm.TempDir, "temp")
 	os.MkdirAll(tempDir, 0755)
 
 	tempPSDPath := filepath.Join(tempDir, fmt.Sprintf("temp_v%d.psd", baseVersion))
@@ -653,19 +710,19 @@ func (cm *CommitManager) loadConfig() {
 // findVersionInStorage searches for version file in simplified storage hierarchy
 func (cm *CommitManager) findVersionInStorage(version int) string {
 	// Check versions directory first
-	versionPath := filepath.Join(cm.VersionsDir, fmt.Sprintf("v%d.lz4", version))
+	versionPath := filepath.Join(cm.SnapshotsDir, fmt.Sprintf("v%d.lz4", version))
 	if cm.fileExists(versionPath) {
 		return versionPath
 	}
 
 	// Check cache directory
-	cachePath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d.lz4", version))
+	cachePath := filepath.Join(cm.DeltasDir, fmt.Sprintf("v%d.lz4", version))
 	if cm.fileExists(cachePath) {
 		return cachePath
 	}
 
 	// Check optimized cache
-	optimizedPath := filepath.Join(cm.CacheDir, fmt.Sprintf("v%d_optimized.zstd", version))
+	optimizedPath := filepath.Join(cm.DeltasDir, fmt.Sprintf("v%d_optimized.zstd", version))
 	if cm.fileExists(optimizedPath) {
 		return optimizedPath
 	}
@@ -1349,4 +1406,217 @@ func (cm *CommitManager) createSmartDeltaFile(deltaPath string, psdFile *staging
 func (cm *CommitManager) fallbackToBinaryDelta(files []*staging.StagedFile, version, baseVersion int) (*CompressionResult, error) {
 	fmt.Printf("Falling back to binary delta compression...\n")
 	return cm.createBsdiffDelta(files, version, baseVersion)
+}
+
+// ============================================================================
+// PHASE 1: Helper Functions for Bsdiff Delta Preprocessing
+// ============================================================================
+
+// getFileSize returns file size in bytes
+func getFileSize(path string) (int64, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return info.Size(), nil
+}
+
+// convertToZip converts LZ4/Zstd/ZIP files to ZIP format for delta comparison
+func (cm *CommitManager) convertToZip(sourcePath, zipPath string) error {
+	if strings.HasSuffix(sourcePath, ".lz4") {
+		return cm.convertLZ4ToZipForDelta(sourcePath, zipPath)
+	} else if strings.HasSuffix(sourcePath, ".zstd") {
+		return cm.convertZstdToZipForDelta(sourcePath, zipPath)
+	} else if strings.HasSuffix(sourcePath, ".zip") {
+		return cm.copyFile(sourcePath, zipPath)
+	}
+	return fmt.Errorf("unsupported source format: %s", sourcePath)
+}
+
+// convertLZ4ToZipForDelta converts LZ4 to ZIP for delta operations
+func (cm *CommitManager) convertLZ4ToZipForDelta(lz4Path, zipPath string) error {
+	// Open LZ4 file
+	lz4File, err := os.Open(lz4Path)
+	if err != nil {
+		return fmt.Errorf("failed to open LZ4: %w", err)
+	}
+	defer lz4File.Close()
+
+	// Create LZ4 reader
+	lz4Reader := lz4.NewReader(lz4File)
+
+	// Read all decompressed data
+	decompressedData, err := io.ReadAll(lz4Reader)
+	if err != nil {
+		return fmt.Errorf("failed to decompress LZ4: %w", err)
+	}
+
+	// Create ZIP file
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create ZIP: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Parse structured LZ4 data and create ZIP entries
+	return cm.parseStructuredDataToZip(decompressedData, zipWriter)
+}
+
+// convertZstdToZipForDelta converts Zstd to ZIP for delta operations
+func (cm *CommitManager) convertZstdToZipForDelta(zstdPath, zipPath string) error {
+	// Open Zstd file
+	zstdFile, err := os.Open(zstdPath)
+	if err != nil {
+		return fmt.Errorf("failed to open Zstd: %w", err)
+	}
+	defer zstdFile.Close()
+
+	// Create Zstd reader
+	zstdReader, err := zstd.NewReader(zstdFile)
+	if err != nil {
+		return fmt.Errorf("failed to create Zstd reader: %w", err)
+	}
+	defer zstdReader.Close()
+
+	// Read all decompressed data
+	decompressedData, err := io.ReadAll(zstdReader)
+	if err != nil {
+		return fmt.Errorf("failed to decompress Zstd: %w", err)
+	}
+
+	// Create ZIP file
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create ZIP: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Parse structured data and create ZIP entries
+	return cm.parseStructuredDataToZip(decompressedData, zipWriter)
+}
+
+// parseStructuredDataToZip parses FILE:path:size format and creates ZIP entries
+func (cm *CommitManager) parseStructuredDataToZip(data []byte, zipWriter *zip.Writer) error {
+	content := string(data)
+	pos := 0
+
+	for pos < len(content) {
+		// Find FILE: header
+		headerEnd := strings.Index(content[pos:], "\n")
+		if headerEnd == -1 {
+			break
+		}
+		headerEnd += pos
+
+		headerLine := content[pos:headerEnd]
+		if !strings.HasPrefix(headerLine, "FILE:") {
+			pos = headerEnd + 1
+			continue
+		}
+
+		// Parse "FILE:path:size"
+		parts := strings.Split(headerLine, ":")
+		if len(parts) != 3 {
+			pos = headerEnd + 1
+			continue
+		}
+
+		filePath := parts[1]
+		fileSize, err := strconv.ParseInt(parts[2], 10, 64)
+		if err != nil || fileSize <= 0 {
+			pos = headerEnd + 1
+			continue
+		}
+
+		// Extract file data
+		fileDataStart := headerEnd + 1
+		fileDataEnd := fileDataStart + int(fileSize)
+
+		if fileDataEnd > len(data) {
+			break
+		}
+
+		fileData := data[fileDataStart:fileDataEnd]
+
+		// Create ZIP entry
+		zipEntry, err := zipWriter.Create(filePath)
+		if err != nil {
+			pos = fileDataEnd
+			continue
+		}
+
+		_, err = zipEntry.Write(fileData)
+		if err != nil {
+			pos = fileDataEnd
+			continue
+		}
+
+		pos = fileDataEnd
+	}
+
+	return nil
+}
+
+// createTempZipFile creates a temporary ZIP from staged files
+func (cm *CommitManager) createTempZipFile(files []*staging.StagedFile, zipPath string) error {
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return fmt.Errorf("failed to create temp ZIP: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	for _, file := range files {
+		// Read original file
+		data, err := os.ReadFile(file.AbsolutePath)
+		if err != nil {
+			fmt.Printf("Warning: failed to read %s: %v\n", file.Path, err)
+			continue
+		}
+
+		// Create ZIP entry
+		w, err := zipWriter.Create(file.Path)
+		if err != nil {
+			fmt.Printf("Warning: failed to create ZIP entry for %s: %v\n", file.Path, err)
+			continue
+		}
+
+		_, err = w.Write(data)
+		if err != nil {
+			fmt.Printf("Warning: failed to write ZIP entry for %s: %v\n", file.Path, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+// copyFile copies a file from src to dst
+func (cm *CommitManager) copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	return nil
 }
