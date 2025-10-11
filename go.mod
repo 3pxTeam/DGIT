@@ -4,8 +4,8 @@ go 1.21
 
 require (
 	github.com/fatih/color v1.18.0
+	github.com/gabstv/go-bsdiff v1.0.5
 	github.com/klauspost/compress v1.17.4
-	github.com/kr/binarydist v0.1.0
 	github.com/pierrec/lz4/v4 v4.1.21
 	github.com/spf13/cobra v1.8.0
 )
