@@ -1,6 +1,6 @@
 // Git 관련 함수들
 
-// 변경사항 커밋
+// ⭐⭐ 수정: 변경사항 커밋 - 간소화 및 개선
 async function commitChanges() {
     if (!currentProject) {
         showToast('프로젝트가 선택되지 않았습니다', 'warning');
@@ -8,110 +8,300 @@ async function commitChanges() {
     }
 
     try {
-        // 현재 상태 확인
-        const statusResult = await window.electron.dgit.status(currentProject.path);
-        let statusInfo = '상태를 확인할 수 없습니다';
-        let changedFiles = [];
-
-        if (statusResult.success) {
-            // DGit 상태 출력 파싱 개선
-            const statusOutput = statusResult.output.trim();
-            console.log('DGit status output:', statusOutput);
-
-            // 빈 출력이거나 "nothing to commit" 메시지가 있으면 변경사항 없음
-            if (!statusOutput || statusOutput.includes('nothing to commit') || statusOutput.includes('working tree clean')) {
-                // 스테이징된 파일이 있는지 확인
-                const addResult = await window.electron.dgit.command('status', ['--porcelain'], currentProject.path);
-                if (addResult.success && addResult.output.trim()) {
-                    // 스테이징된 파일이 있음
-                    const stagedLines = addResult.output.split('\n').filter(line => line.trim());
-                    changedFiles = stagedLines.map(line => {
-                        const status = line.substring(0, 2);
-                        const file = line.substring(3);
-                        return { status, file };
-                    });
-                    statusInfo = `${changedFiles.length}개 파일이 스테이징됨`;
-                } else {
-                    showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
-                    return;
-                }
-            } else {
-                // 변경된 파일 파싱
-                const statusLines = statusOutput.split('\n').filter(line => line.trim());
-
-                if (statusLines.length === 0) {
-                    showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
-                    return;
-                }
-
-                changedFiles = statusLines.map(line => {
-                    // DGit 상태 형식에 맞게 파싱
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.length < 3) return null;
-                    const status = trimmedLine.substring(0, 2);
-                    const file = trimmedLine.substring(3);
-                    return {
-                        status: status || 'M',
-                        file: file || trimmedLine
-                    };
-                }).filter(item => item && item.file);
-
-                const totalCount = changedFiles.length;
-                if (totalCount > 0) {
-                    statusInfo = `${totalCount}개 파일이 변경됨`;
-                } else {
-                    showToast('커밋할 변경사항이 없습니다. 먼저 "모든 파일 추가" 버튼을 눌러주세요.', 'warning');
-                    return;
-                }
-            }
-        } else {
-            showToast('프로젝트 상태를 확인할 수 없습니다', 'error');
-            return;
-        }
-
-        showModal('변경사항 커밋', '', `
-            <div class="commit-dialog">
-                <div class="commit-header">
-                    <div class="commit-title">변경사항을 커밋하시겠습니까?</div>
-                    <div class="commit-subtitle">${statusInfo}</div>
-                </div>
-
-                <div class="commit-files-preview">
-                    ${changedFiles.slice(0, 5).map(file => `
-                        <div class="commit-file-item">
-                            <div class="commit-file-status ${file.status}"></div>
-                            <div class="commit-file-name">${file.file}</div>
-                        </div>
-                    `).join('')}
-                    ${changedFiles.length > 5 ? `
-                        <div class="commit-file-more">그 외 ${changedFiles.length - 5}개 파일...</div>
-                    ` : ''}
-                </div>
-
-                <div class="commit-message-section">
-                    <label class="commit-message-label">커밋 메시지</label>
+        // 커밋 메시지 입력 모달 바로 표시
+        showModal('변경사항 커밋', '커밋 메시지를 입력하세요', `
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 12px; color: var(--text-primary);">✍️ 커밋 메시지</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 16px;">
+                        변경사항을 설명하는 메시지를 입력해주세요.
+                    </p>
                     <textarea
-                        id="commitMessage"
-                        placeholder="변경사항을 설명해주세요..."
-                        class="commit-message-input"
+                        id="commitMessageInput"
+                        placeholder="예: 디자인 파일 업데이트, 새로운 아이콘 추가 등..."
+                        style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.95rem; resize: vertical;"
                     ></textarea>
                 </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                    <button class="btn btn-primary" onclick="executeCommit()">커밋 실행</button>
+                </div>
             </div>
-        `, () => {
-            const message = document.getElementById('commitMessage').value;
-            if (message.trim()) {
-                performCommit(message);
-            } else {
-                showToast('커밋 메시지를 입력해주세요', 'warning');
+        `);
+        
+        // 텍스트 영역에 포커스
+        setTimeout(() => {
+            const textarea = document.getElementById('commitMessageInput');
+            if (textarea) {
+                textarea.focus();
             }
-        });
+        }, 100);
+        
     } catch (error) {
         console.error('커밋 준비 실패:', error);
         showToast('커밋 준비 중 오류가 발생했습니다', 'error');
     }
 }
 
-async function performCommit(message) {
+// ⭐⭐ 새로 추가: 커밋 실행 함수
+async function executeCommit() {
+    const messageInput = document.getElementById('commitMessageInput');
+    const message = messageInput ? messageInput.value.trim() : '';
+    
+    if (!message) {
+        showToast('커밋 메시지를 입력해주세요', 'warning');
+        return;
+    }
+    
+    closeModal();
+    
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'error');
+        return;
+    }
+
+    try {
+        // 커밋 진행 모달 표시
+        showModal('커밋 진행 중', '', `
+            <div style="padding: 30px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                    <div class="loading-spinner" style="margin: 0 auto;"></div>
+                </div>
+                <div id="commitProgressText" style="color: var(--text-secondary); font-size: 1rem;">
+                    커밋을 시작합니다...
+                </div>
+            </div>
+        `);
+
+        // 로그 탭으로 전환
+        showTerminalTab('log');
+        
+        // 터미널에 로그 추가
+        const terminalLog = document.getElementById('terminalLog');
+        terminalLog.innerHTML += `
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="color: var(--accent-blue); font-size: 1.2rem;">💾</span>
+                    <span style="font-weight: bold; color: var(--text-primary);">커밋 시작</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px;">메시지: "${message}"</span>
+                </div>
+            </div>
+        `;
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+
+        // 1. 모든 파일 추가
+        document.getElementById('commitProgressText').textContent = '파일을 스테이징 영역에 추가하는 중...';
+        
+        const addResult = await window.electron.dgit.add(currentProject.path);
+        
+        if (!addResult.success) {
+            throw new Error(`파일 추가 실패: ${addResult.error}`);
+        }
+
+        terminalLog.innerHTML += `
+            <div style="margin-bottom: 8px;">
+                <span style="color: var(--accent-green);">✅</span>
+                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                <span style="margin-left: 8px;">파일 추가 완료</span>
+            </div>
+        `;
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+
+        // 2. 커밋 실행
+        document.getElementById('commitProgressText').textContent = '커밋을 생성하는 중...';
+        
+        const commitResult = await window.electron.dgit.commit(currentProject.path, message);
+
+        if (commitResult.success) {
+            // 성공 로그 추가
+            terminalLog.innerHTML += `
+                <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-left: 3px solid var(--accent-green); border-radius: 4px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--accent-green); font-size: 1.2rem;">✅</span>
+                        <span style="font-weight: bold; color: var(--accent-green);">커밋 완료</span>
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">
+                        <span>[${new Date().toLocaleTimeString()}]</span>
+                        <span style="margin-left: 8px;">메시지: "${message}"</span>
+                    </div>
+                </div>
+            `;
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+
+            // 모달 닫고 성공 메시지
+            setTimeout(async () => {
+                closeModal();
+                showToast('커밋이 성공적으로 완료되었습니다', 'success');
+                
+                // 프로젝트 데이터 새로고침 (커밋 히스토리 업데이트)
+                await loadProjectData();
+            }, 1000);
+
+        } else {
+            throw new Error(commitResult.error || '커밋 실패');
+        }
+        
+    } catch (error) {
+        console.error('커밋 실행 실패:', error);
+
+        // 오류 로그 추가
+        const terminalLog = document.getElementById('terminalLog');
+        terminalLog.innerHTML += `
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-left: 3px solid var(--accent-red); border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--accent-red); font-size: 1.2rem;">❌</span>
+                    <span style="font-weight: bold; color: var(--accent-red);">커밋 실패</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                </div>
+                <div style="margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: var(--accent-red);">
+                    ${error.message}
+                </div>
+            </div>
+        `;
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+
+        setTimeout(() => {
+            closeModal();
+            showToast('커밋 중 오류가 발생했습니다', 'error');
+        }, 1500);
+    }
+}
+
+// ⭐⭐ 수정: 파일 복원 - DGit restore 명령어 사용
+async function restoreFiles() {
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    try {
+        // 커밋 히스토리 가져오기
+        const logResult = await window.electron.dgit.log(currentProject.path, 10);
+        
+        if (!logResult.success || !logResult.output) {
+            showToast('커밋 히스토리를 불러올 수 없습니다', 'error');
+            return;
+        }
+
+        const commits = parseCommitLog(logResult.output);
+        
+        if (commits.length === 0) {
+            showToast('복원할 커밋이 없습니다', 'warning');
+            return;
+        }
+
+        // 복원할 커밋 선택 모달
+        showModal('파일 복원', '복원할 버전을 선택하세요', `
+            <div style="padding: 20px;">
+                <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                    선택한 버전의 모든 파일이 복원됩니다.<br>
+                    <strong style="color: var(--accent-orange);">주의: 현재 변경사항은 모두 사라집니다.</strong>
+                </p>
+                
+                <div style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                    ${commits.map(commit => `
+                        <div class="commit-item-selectable" onclick="selectCommitForRestore('${commit.version}', '${commit.hash}', '${commit.message.replace(/'/g, "\\'")}')">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-secondary); border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-secondary)'">
+                                <div>
+                                    <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">
+                                        v${commit.version} - ${commit.message}
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                        ${commit.hash} • ${commit.date} • ${commit.files} 파일
+                                    </div>
+                                </div>
+                                <div style="color: var(--accent-blue);">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 18l6-6-6-6"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                </div>
+            </div>
+        `);
+        
+    } catch (error) {
+        console.error('복원 준비 실패:', error);
+        showToast('복원 준비 중 오류가 발생했습니다', 'error');
+    }
+}
+
+// ⭐⭐ 새로 추가: 복원할 커밋 선택
+function selectCommitForRestore(version, hash, message) {
+    closeModal();
+    
+    showModal('복원 확인', '정말 복원하시겠습니까?', `
+        <div style="padding: 20px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 2.5rem; margin-bottom: 12px;">⚠️</div>
+                <h3 style="margin-bottom: 12px; color: var(--text-primary);">버전 ${version}로 복원</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                    "${message}"
+                </p>
+                <p style="color: var(--accent-orange); font-size: 0.9rem;">
+                    현재 작업 중인 모든 변경사항이 사라집니다.
+                </p>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                <button class="btn btn-danger" onclick="performRestoreToVersion('${version}')" style="background: #ff3b30 !important;">
+                    복원 실행
+                </button>
+            </div>
+        </div>
+    `);
+}
+
+// 모든 파일 추가 (dgit add .)
+async function addAllFiles() {
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    try {
+        showToast('모든 파일을 추가하는 중...', 'info');
+        
+        const result = await window.electron.dgit.add(currentProject.path);
+        
+        if (result.success) {
+            showToast('모든 파일이 스테이징 영역에 추가되었습니다', 'success');
+            
+            // 터미널에 로그 추가
+            const terminalLog = document.getElementById('terminalLog');
+            terminalLog.innerHTML += `
+                <div style="margin-bottom: 8px;">
+                    <span style="color: var(--accent-green);">✅</span>
+                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px;">모든 파일 추가 완료</span>
+                </div>
+            `;
+            terminalLog.scrollTop = terminalLog.scrollHeight;
+            
+            // 프로젝트 상태 새로고침
+            await loadProjectData();
+        } else {
+            showToast(`파일 추가 실패: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('파일 추가 실패:', error);
+        showToast('파일 추가 중 오류가 발생했습니다', 'error');
+    }
+}
+
+// ⭐⭐ 수정: 버전으로 복원 실행
+async function performRestoreToVersion(version) {
     closeModal();
 
     if (!currentProject) {
@@ -120,270 +310,94 @@ async function performCommit(message) {
     }
 
     try {
-        // 커밋 프로그레스 모달 표시
-        showModal('커밋 진행 중', '', `
-            <div style="padding: 20px;">
-                <div id="commitProgressBar" style="margin-bottom: 20px;"></div>
-                <div id="commitProgressText" style="text-align: center; color: var(--text-secondary);">
-                    커밋을 시작합니다...
+        // 복원 진행 모달 표시
+        showModal('복원 진행 중', '', `
+            <div style="padding: 30px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                    <div class="loading-spinner" style="margin: 0 auto;"></div>
+                </div>
+                <div id="restoreProgressText" style="color: var(--text-secondary); font-size: 1rem;">
+                    버전 ${version}로 복원 중...
                 </div>
             </div>
         `);
 
-        // 1. 먼저 변경된 파일 수 확인
-        updateProgressBar('commitProgressBar', 5, '변경사항 분석 중...');
-        document.getElementById('commitProgressText').textContent = '변경된 파일을 분석하고 있습니다...';
-
-        const statusResult = await window.electron.dgit.status(currentProject.path);
-        let totalFiles = 0;
-
-        if (statusResult.success && statusResult.output.trim()) {
-            const statusLines = statusResult.output.split('\n').filter(line => line.trim());
-            totalFiles = statusLines.length;
-        }
-
-        // totalFiles가 0이면 기본값 사용 (예외 처리)
-        if (totalFiles === 0) {
-            totalFiles = 1; // 최소 1개로 설정하여 0으로 나누기 방지
-        }
-
+        // 로그 탭으로 전환
+        showTerminalTab('log');
+        
         // 터미널에 로그 추가
         const terminalLog = document.getElementById('terminalLog');
         terminalLog.innerHTML += `
-            <div style="margin-bottom: 8px;">
-                <span style="color: var(--accent-blue);">ⳳ</span>
-                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                커밋 시작: ${message} (${totalFiles}개 파일)
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="color: var(--accent-orange); font-size: 1.2rem;">🔄</span>
+                    <span style="font-weight: bold; color: var(--text-primary);">파일 복원 시작</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px;">버전: v${version}</span>
+                </div>
             </div>
         `;
         terminalLog.scrollTop = terminalLog.scrollHeight;
 
-        // 2. 파일 추가 시작 (10% ~ 70%)
-        updateProgressBar('commitProgressBar', 10, '파일 추가 중...');
-        document.getElementById('commitProgressText').textContent = `${totalFiles}개 파일을 스테이징 영역에 추가하고 있습니다...`;
+        // DGit restore 명령 실행
+        const restoreResult = await window.electron.dgit.restore(currentProject.path, version, []);
 
-        // 실제 add 명령 실행
-        const addResult = await window.electron.dgit.command('add', ['.'], currentProject.path);
-
-        if (!addResult.success) {
-            throw new Error(`파일 추가 실패: ${addResult.error}`);
-        }
-
-        // 파일 추가 완료 시 70%까지
-        const addProgress = 70;
-        updateProgressBar('commitProgressBar', addProgress, `${totalFiles}개 파일 스테이징 완료`);
-        document.getElementById('commitProgressText').textContent = '커밋을 생성하고 있습니다...';
-
-        terminalLog.innerHTML += `
-            <div style="margin-bottom: 8px;">
-                <span style="color: var(--accent-blue);">📁</span>
-                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                ${totalFiles}개 파일 추가 완료
-            </div>
-        `;
-        terminalLog.scrollTop = terminalLog.scrollHeight;
-
-        // 3. 커밋 실행 (70% ~ 90%)
-        updateProgressBar('commitProgressBar', 85, '커밋 실행 중...');
-        document.getElementById('commitProgressText').textContent = '변경사항을 저장소에 기록하고 있습니다...';
-
-        const commitResult = await window.electron.dgit.command('commit', ['-m', message], currentProject.path);
-
-        if (commitResult.success) {
-            // 100% - 완료
-            updateProgressBar('commitProgressBar', 100, '커밋 완료!');
-            document.getElementById('commitProgressText').textContent = '커밋이 성공적으로 완료되었습니다!';
-
+        if (restoreResult.success) {
             // 성공 로그 추가
             terminalLog.innerHTML += `
-                <div style="margin-bottom: 8px;">
-                    <span style="color: var(--accent-green);">✓</span>
-                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                    커밋 완료: ${message} (${totalFiles}개 파일)
+                <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-left: 3px solid var(--accent-green); border-radius: 4px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--accent-green); font-size: 1.2rem;">✅</span>
+                        <span style="font-weight: bold; color: var(--accent-green);">복원 완료</span>
+                    </div>
+                    <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">
+                        <span>[${new Date().toLocaleTimeString()}]</span>
+                        <span style="margin-left: 8px;">버전 v${version}로 성공적으로 복원되었습니다</span>
+                    </div>
                 </div>
             `;
             terminalLog.scrollTop = terminalLog.scrollHeight;
 
-            // 잠시 후 모달 닫기
-            setTimeout(() => {
+            // 모달 닫고 성공 메시지
+            setTimeout(async () => {
                 closeModal();
-                showToast('커밋이 성공적으로 완료되었습니다', 'success');
-            }, 1500);
+                showToast(`버전 ${version}로 성공적으로 복원되었습니다`, 'success');
+                
+                // 프로젝트 데이터 새로고침
+                await loadProjectData();
+            }, 1000);
 
-            // 프로젝트 데이터 새로고침
-            await loadProjectData();
         } else {
-            // 실패 처리
-            document.getElementById('commitProgressText').textContent = '커밋 실행 중 오류가 발생했습니다.';
-            updateProgressBar('commitProgressBar', 100, '오류 발생');
-
-            setTimeout(() => {
-                closeModal();
-                showToast(`커밋 실패: ${commitResult.error || '알 수 없는 오류'}`, 'error');
-            }, 2000);
+            throw new Error(restoreResult.error || '복원 실패');
         }
+        
     } catch (error) {
-        console.error('커밋 실행 실패:', error);
+        console.error('복원 실행 실패:', error);
 
-        if (document.getElementById('commitProgressText')) {
-            document.getElementById('commitProgressText').textContent = '커밋 중 오류가 발생했습니다.';
-            updateProgressBar('commitProgressBar', 100, '오류');
-        }
+        // 오류 로그 추가
+        const terminalLog = document.getElementById('terminalLog');
+        terminalLog.innerHTML += `
+            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-left: 3px solid var(--accent-red); border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--accent-red); font-size: 1.2rem;">❌</span>
+                    <span style="font-weight: bold; color: var(--accent-red);">복원 실패</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                </div>
+                <div style="margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: var(--accent-red);">
+                    ${error.message}
+                </div>
+            </div>
+        `;
+        terminalLog.scrollTop = terminalLog.scrollHeight;
 
         setTimeout(() => {
             closeModal();
-            showToast('커밋 중 오류가 발생했습니다', 'error');
-        }, 2000);
-    }
-}
-
-// 모든 파일 추가
-async function addAllFiles() {
-    if (!currentProject) {
-        showToast('프로젝트가 선택되지 않았습니다', 'warning');
-        return;
-    }
-
-    try {
-        const result = await window.electron.dgit.command('add', ['.'], currentProject.path);
-
-        if (result.success) {
-            showToast('모든 파일이 스테이징 영역에 추가되었습니다', 'success');
-            await loadProjectData(); // 파일 상태 새로고침
-        } else {
-            showToast('파일 추가 중 오류가 발생했습니다', 'error');
-        }
-    } catch (error) {
-        console.error('파일 추가 실패:', error);
-        showToast('파일 추가 중 오류가 발생했습니다', 'error');
-    }
-}
-
-// 파일 복원
-async function restoreFiles() {
-    if (!currentProject) {
-        showToast('프로젝트가 선택되지 않았습니다', 'warning');
-        return;
-    }
-
-    showModal('파일 복원', '변경사항을 복원하시겠습니까?', `
-        <div style="padding: 20px;">
-            <p style="margin-bottom: 20px; color: var(--text-secondary);">
-                이 작업은 모든 변경사항을 마지막 커밋 상태로 되돌립니다.<br>
-                <strong style="color: var(--accent-red);">주의: 이 작업은 되돌릴 수 없습니다.</strong>
-            </p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
-                <button class="btn btn-danger" onclick="performRestore()" style="background: #ff3b30 !important;">복원 실행</button>
-            </div>
-        </div>
-    `);
-}
-
-// 복원 실행
-async function performRestore() {
-    closeModal();
-
-    try {
-        showToast('파일을 복원하는 중...', 'info');
-
-        // 터미널에 로그 추가
-        const terminalLog = document.getElementById('terminalLog');
-        terminalLog.innerHTML += `
-            <div style="margin-bottom: 8px;">
-                <span style="color: var(--accent-blue);">ⳳ</span>
-                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                파일 복원 시작...
-            </div>
-        `;
-        terminalLog.scrollTop = terminalLog.scrollHeight;
-
-        // DGit reset --hard HEAD 명령 사용 (더 확실한 복원)
-        const result = await window.electron.dgit.command('reset', ['--hard', 'HEAD'], currentProject.path);
-
-        if (result.success) {
-            // 성공 로그 추가
-            terminalLog.innerHTML += `
-                <div style="margin-bottom: 8px;">
-                    <span style="color: var(--accent-green);">✓</span>
-                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                    파일 복원 완료
-                </div>
-            `;
-            terminalLog.scrollTop = terminalLog.scrollHeight;
-
-            showToast('파일이 성공적으로 복원되었습니다', 'success');
-            await loadProjectData(); // 파일 상태 새로고침
-        } else {
-            // 실패 로그 추가
-            terminalLog.innerHTML += `
-                <div style="margin-bottom: 8px;">
-                    <span style="color: var(--accent-red);">✗</span>
-                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                    파일 복원 실패: ${result.error || '알 수 없는 오류'}
-                </div>
-            `;
-            terminalLog.scrollTop = terminalLog.scrollHeight;
-
-            showToast(`파일 복원 실패: ${result.error || '알 수 없는 오류'}`, 'error');
-        }
-    } catch (error) {
-        console.error('파일 복원 실패:', error);
-
-        // 에러 로그 추가
-        const terminalLog = document.getElementById('terminalLog');
-        terminalLog.innerHTML += `
-            <div style="margin-bottom: 8px;">
-                <span style="color: var(--accent-red);">✗</span>
-                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
-                파일 복원 오류: ${error.message}
-            </div>
-        `;
-        terminalLog.scrollTop = terminalLog.scrollHeight;
-
-        showToast('파일 복원 중 오류가 발생했습니다', 'error');
-    }
-}
-
-// 특정 커밋으로 복원
-async function restoreToCommit(commitHash) {
-    if (!currentProject) {
-        showToast('프로젝트가 선택되지 않았습니다', 'warning');
-        return;
-    }
-
-    showModal('커밋으로 복원', '이 커밋으로 복원하시겠습니까?', `
-        <div style="padding: 20px;">
-            <p style="margin-bottom: 20px; color: var(--text-secondary);">
-                모든 파일이 커밋 <code>${commitHash}</code> 상태로 복원됩니다.<br>
-                <strong style="color: var(--accent-red);">주의: 현재 변경사항은 모두 사라집니다.</strong>
-            </p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
-                <button class="btn btn-primary" onclick="performRestoreToCommit('${commitHash}')">복원 실행</button>
-            </div>
-        </div>
-    `);
-}
-
-// 커밋으로 복원 실행
-async function performRestoreToCommit(commitHash) {
-    closeModal();
-
-    try {
-        showToast('커밋으로 복원하는 중...', 'info');
-
-        const result = await window.electron.dgit.command('reset', ['--hard', commitHash], currentProject.path);
-
-        if (result.success) {
-            showToast(`커밋 ${commitHash}로 성공적으로 복원되었습니다`, 'success');
-            await loadProjectData();
-        } else {
-            showToast(`복원 실패: ${result.error || '알 수 없는 오류'}`, 'error');
-        }
-    } catch (error) {
-        console.error('커밋 복원 실패:', error);
-        showToast('커밋 복원 중 오류가 발생했습니다', 'error');
+            showToast('복원 중 오류가 발생했습니다', 'error');
+        }, 1500);
     }
 }
 
@@ -417,7 +431,7 @@ function getGitStatusText(statusCode) {
         'R': 'renamed',
         'C': 'copied',
         'U': 'updated',
-        '?': 'untracked',
+        'T': 'untracked',
         '!': 'ignored'
     };
     return statusMap[statusCode] || 'unknown';

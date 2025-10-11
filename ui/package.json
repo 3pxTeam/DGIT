@@ -1,5 +1,5 @@
 {
-  "name": "dgit-mac",
+  "name": "dgit",
   "version": "1.0.0",
   "description": "DGit CLI용 데스크탑 인터페이스",
   "main": "main.js",

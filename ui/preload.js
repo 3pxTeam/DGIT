@@ -64,9 +64,13 @@ contextBridge.exposeInMainWorld('electron', {
         listBranches: (projectPath) => 
             ipcRenderer.invoke('dgit-command', 'branch', [], projectPath),
         
-        // 복원
-        restore: (projectPath, commitHash, files) => 
-            ipcRenderer.invoke('dgit-command', 'checkout', [commitHash, '--', ...files], projectPath),
+          // 복원 - ⭐⭐ 수정: DGit restore 명령어 사용
+          restore: (projectPath, versionOrHash, files) => 
+            ipcRenderer.invoke('dgit-restore', projectPath, versionOrHash, files),
+        
+        // 파일 상세 분석 (dgit show)
+        showFile: (projectPath, fileName) => 
+            ipcRenderer.invoke('dgit-show-file', projectPath, fileName),
         
         // Diff 보기
         diff: (projectPath, commitHash1, commitHash2) => 
@@ -140,6 +144,9 @@ contextBridge.exposeInMainWorld('electron', {
     // 플랫폼 정보
     platform: process.platform,
     
+    // dgit 객체 안에 추가
+showFile: (projectPath, fileName) => 
+    ipcRenderer.invoke('dgit-show-file', projectPath, fileName),
     // 환경 변수
     env: {
         NODE_ENV: process.env.NODE_ENV,

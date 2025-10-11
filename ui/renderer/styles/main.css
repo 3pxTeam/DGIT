@@ -160,9 +160,10 @@ body {
 
 /* 프로젝트 작업 화면 */
 .workspace {
-    flex: 1;
+    flex: 1; 
     display: none;
     flex-direction: column;
+    min-height: 0; 
 }
 
 .workspace.active {
@@ -206,8 +207,9 @@ body {
 }
 
 .workspace-content {
-    flex: 1;
+    flex: 1; 
     display: flex;
+    min-height: 0; 
 }
 
 .sidebar {
@@ -281,19 +283,22 @@ body {
 }
 
 .main-content {
-    flex: 1;
+    flex: 1; 
     display: flex;
     flex-direction: column;
+    min-height: 0; 
+    position: relative; /* 터미널 절대 위치의 기준점 */
 }
 
 /* 스크롤이 적용될 메인 컨테이너 */
 .content-area {
-    flex: 1;
+    flex: 1; 
+    flex-shrink: 0; /* ⭐⭐ 보강: 수축 방지 ⭐⭐ */
     padding: 20px;
     display: flex;
     flex-direction: column;
-    height: 100%; /* 부모의 높이를 채우도록 설정 */
-    overflow-y: hidden; /* 스크롤은 자식 섹션이 담당 */
+    min-height: 0; 
+    overflow-y: hidden; 
 }
 
 /* content-area의 자식 요소들이 스크롤되지 않도록 고정 */
@@ -304,9 +309,12 @@ body {
 /* content-section들이 flex 아이템이 되어 남은 공간을 채우고 스크롤 가능하게 함 */
 .content-section {
     display: none;
-    flex: 1;
+    flex: 1; 
     flex-direction: column;
+    min-height: 0; 
     overflow-y: auto;
+    
+    /* height: 100%; 제거 */
 }
 
 .content-section.active {
@@ -344,6 +352,9 @@ body {
 .guide-section {
     display: flex;
     flex-direction: column;
+    flex: 1; /* ⭐⭐ 보강: 남은 공간을 채우도록 설정 ⭐⭐ */
+    min-height: 0;
+    overflow-y: auto;
     gap: 24px;
     padding-top: 12px;
 }
@@ -405,13 +416,18 @@ body {
     border: 1px solid var(--border-color);
 }
 
-.command-item code {
+.command-item code,
+.command-item kbd { /* kbd 스타일 추가 */
     display: block;
     font-family: 'SF Mono', Monaco, monospace;
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 4px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
 }
 
 .command-item p {
@@ -422,14 +438,30 @@ body {
 
 /* 터미널 패널 */
 .terminal-panel {
-    height: 200px;
+    position: absolute; /* 절대 위치로 오버레이 */
+    bottom: 0; /* 화면 하단에 고정 */
+    left: 0;
+    right: 0;
+    z-index: 100; /* 다른 콘텐츠 위에 표시 */
+    
+    height: 200px; /* 높이를 height로 제어 */
     background: var(--bg-tertiary);
     display: flex;
     flex-direction: column;
     border-top: 1px solid var(--border-color);
-    position: relative;
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* height에 transition 적용 */
 }
+
+/* 터미널 축소 상태 스타일 */
+.terminal-panel.collapsed {
+    height: 40px !important; /* height를 사용하여 축소 */
+}
+
+.terminal-panel.collapsed .terminal-content-wrapper {
+    display: none;
+}
+/* 터미널 축소 상태 스타일 끝 */
+
 
 .terminal-resizer {
     height: 8px;
@@ -549,9 +581,50 @@ body {
     position: relative;
 }
 
+/* ⭐⭐ 추가: 터미널 로그와 상태에 스크롤 추가 */
+#terminalLog,
+#terminalStatus {
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 10px; 
+    line-height: 1.5;
+    color: #f0f0f0;
+    padding: 16px;
+    height: 100%;
+    overflow-y: auto; /* 세로 스크롤 활성화 */
+    overflow-x: hidden; /* 가로 스크롤 숨김 */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* 스크롤바 스타일링 (WebKit 브라우저용) */
+#terminalLog::-webkit-scrollbar,
+#terminalStatus::-webkit-scrollbar {
+    width: 8px;
+}
+
+#terminalLog::-webkit-scrollbar-track,
+#terminalStatus::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+#terminalLog::-webkit-scrollbar-thumb,
+#terminalStatus::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+#terminalLog::-webkit-scrollbar-thumb:hover,
+#terminalStatus::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
 .terminal-content {
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 13px;
+    font-size: 10px; 
     line-height: 1.5;
     color: #f0f0f0;
     padding: 16px;
@@ -564,13 +637,53 @@ body {
     bottom: 0;
 }
 
+/* CSS 우선순위 문제 해결을 위해 명시적으로 .terminal-content 내부 폰트 크기 지정 */
+.terminal-content pre,
 .terminal-content div {
-    margin-bottom: 4px;
+    font-size: 10px; 
+    line-height: 1.5;
 }
+
+.terminal-content div {
+    margin-bottom: 4px; 
+}
+
 
 .terminal-panel.collapsed .terminal-content-wrapper {
     display: none;
 }
+
+/* ⭐⭐ 추가: 파일 목록과 커밋 히스토리 스크롤바 */
+#fileList,
+#commitList {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 300px); /* 화면 높이에 맞게 조정 */
+}
+
+/* 파일 목록과 커밋 히스토리 스크롤바 스타일 */
+#fileList::-webkit-scrollbar,
+#commitList::-webkit-scrollbar {
+    width: 8px;
+}
+
+#fileList::-webkit-scrollbar-track,
+#commitList::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+#fileList::-webkit-scrollbar-thumb,
+#commitList::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+#fileList::-webkit-scrollbar-thumb:hover,
+#commitList::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
 
 /* 설정 섹션의 제목 아래 여백 */
 .settings-group h4,
@@ -585,6 +698,52 @@ body {
     margin-top: 8px;
     margin-bottom: 8px;
 }
+
+/* ⭐⭐⭐ 설정 탭 스타일 유지 ⭐⭐⭐ */
+
+.settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* 항목 간 간격 */
+    padding: 10px 0;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+    background: var(--hover-bg);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.setting-info {
+    flex: 1;
+    margin-right: 20px;
+}
+
+.setting-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.setting-desc {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* ⭐⭐⭐ 설정 탭 스타일 유지 끝 ⭐⭐⭐ */
+
 
 /* 반응형 */
 @media (max-width: 768px) {

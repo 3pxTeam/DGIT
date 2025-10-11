@@ -230,6 +230,28 @@ ipcMain.handle('dgit-log', async (event, projectPath, limit = 10) => {
     }
 });
 
+// DGit 파일 복원
+ipcMain.handle('dgit-restore', async (event, projectPath, versionOrHash, files = []) => {
+    try {
+        const args = [versionOrHash];
+        
+        // 파일 목록이 있으면 추가
+        if (files && files.length > 0) {
+            args.push(...files);
+        }
+        
+        const result = await dgit.executeCommand('restore', args, projectPath);
+        return {
+            success: true,
+            output: result.output
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.error || error.message
+        };
+    }
+});
 // ====== 파일 시스템 조작 ======
 
 // 파일 읽기
@@ -257,6 +279,22 @@ ipcMain.handle('write-file', async (event, filePath, data) => {
         return {
             success: false,
             error: error.message
+        };
+    }
+});
+
+// ⭐⭐ 새로 추가: 파일 상세 분석 (dgit show)
+ipcMain.handle('dgit-show-file', async (event, projectPath, fileName) => {
+    try {
+        const result = await dgit.executeCommand('show', [fileName], projectPath);
+        return {
+            success: true,
+            output: result.output
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.error || error.message
         };
     }
 });
@@ -293,6 +331,10 @@ ipcMain.handle('scan-directory', async (event, dirPath) => {
             files: files
         };
     } catch (error) {
+        console.error('===== 스캔 실패 원인 =====');
+        console.error('요청된 경로:', dirPath); // 어떤 경로에서 에러가 났는지 확인
+        console.error('발생한 에러:', error);   // 터미널에 전체 에러 객체 출력
+        console.error('=========================');
         return {
             success: false,
             error: error.message
@@ -407,20 +449,46 @@ ipcMain.handle('save-recent-project', async (event, project) => {
 // ====== 알림 및 시스템 ======
 
 // 시스템 알림 표시
-ipcMain.handle('show-notification', (event, title, body) => {
+ipcMain.handle('show-notification', async (event, title, body) => {
     const { Notification } = require('electron');
     
-    if (Notification.isSupported()) {
-        new Notification({
-            title: title,
-            body: body,
-            icon: path.join(__dirname, 'assets', 'icon.png')
-        }).show();
+    // ⭐⭐ 추가: 알림 설정 확인
+    try {
+        let notificationsEnabled = true; // 기본값
         
-        return { success: true };
+        // 설정 파일에서 알림 설정 로드
+        if (fs.existsSync(configPath)) {
+            const configData = await fs.promises.readFile(configPath, 'utf8');
+            const config = JSON.parse(configData);
+            notificationsEnabled = config.notifications !== undefined ? config.notifications : true;
+        }
+        
+        // 알림이 비활성화되어 있으면 표시하지 않음
+        /*
+        if (!notificationsEnabled) {
+            console.log('[Notification] 알림이 비활성화되어 있어 표시하지 않습니다.');
+            return { success: false, reason: 'notifications_disabled' };
+        }
+        */
+
+        
+        // 알림 표시
+        if (Notification.isSupported()) {
+            new Notification({
+                title: title,
+                body: body,
+                icon: path.join(__dirname, 'assets', 'icon.png')
+            }).show();
+            
+            return { success: true };
+        }
+        
+        return { success: false, reason: 'not_supported' };
+        
+    } catch (error) {
+        console.error('[Notification] 오류:', error);
+        return { success: false, error: error.message };
     }
-    
-    return { success: false };
 });
 
 // 앱 정보 가져오기

@@ -62,6 +62,12 @@ async function openProjectWithoutDGit(projectInfo) {
         console.error('최근 프로젝트 저장 실패:', error);
     }
 
+    // init 버튼 보이기 (DGit 저장소가 없으므로)
+    const initButton = document.getElementById('initButton');
+    if (initButton) {
+        initButton.style.display = 'inline-block';
+    }
+
     // 파일만 로드 (DGit 기능 제외)
     await loadProjectFilesOnly();
 
@@ -106,13 +112,76 @@ async function initializeRepository(projectInfo) {
     try {
         showToast('DGit 저장소를 초기화하는 중...', 'info');
 
-        const result = await window.electron.dgit.command('init', [], projectInfo.path);
+        const result = await window.electron.dgit.init(projectInfo.path);
 
         if (result.success) {
             showToast('DGit 저장소가 초기화되었습니다', 'success');
             await openProjectDirectly(projectInfo);
         } else {
-            showToast('저장소 초기화에 실패했습니다', 'error');
+            showToast(`저장소 초기화에 실패했습니다: ${result.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('저장소 초기화 실패:', error);
+        showToast('저장소 초기화 중 오류가 발생했습니다', 'error');
+    }
+}
+
+// 현재 프로젝트 초기화 (GUI 버튼용)
+async function initializeCurrentProject() {
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    // 확인 모달 표시
+    showModal('DGit 저장소 초기화', '현재 프로젝트를 DGit 저장소로 초기화하시겠습니까?', `
+        <div style="padding: 20px; text-align: center;">
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 3rem; margin-bottom: 16px;">⚡</div>
+                <h3 style="margin-bottom: 12px; color: var(--text-primary);">DGit 저장소 초기화</h3>
+                <p style="color: var(--text-secondary); line-height: 1.5;">
+                    현재 프로젝트에 DGit 저장소를 생성합니다.<br>
+                    이 작업은 프로젝트 폴더에 .dgit 폴더를 생성하여<br>
+                    버전 관리를 시작할 수 있게 합니다.
+                </p>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                <button class="btn btn-warning" onclick="executeInitialization()">
+                    초기화 실행
+                </button>
+            </div>
+        </div>
+    `);
+}
+
+// 초기화 실행
+async function executeInitialization() {
+    closeModal();
+
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    try {
+        showToast('DGit 저장소를 초기화하는 중...', 'info');
+
+        const result = await window.electron.dgit.init(currentProject.path);
+
+        if (result.success) {
+            showToast('DGit 저장소가 초기화되었습니다', 'success');
+            
+            // init 버튼 숨기기
+            const initButton = document.getElementById('initButton');
+            if (initButton) {
+                initButton.style.display = 'none';
+            }
+            
+            // 프로젝트 데이터 다시 로드
+            await loadProjectData();
+        } else {
+            showToast(`저장소 초기화에 실패했습니다: ${result.error}`, 'error');
         }
     } catch (error) {
         console.error('저장소 초기화 실패:', error);
@@ -182,10 +251,37 @@ async function openProjectDirectly(projectInfo) {
         console.error('최근 프로젝트 저장 실패:', error);
     }
 
+    // DGit 저장소 상태 확인 및 init 버튼 표시 여부 결정
+    await checkRepositoryStatusAndShowInitButton();
+
     // 프로젝트 데이터 로드
     await loadProjectData();
 
     showToast(`프로젝트 '${projectInfo.name}'을 열었습니다`, 'success');
+}
+
+// DGit 저장소 상태 확인 및 init 버튼 표시
+async function checkRepositoryStatusAndShowInitButton() {
+    if (!currentProject) return;
+
+    const initButton = document.getElementById('initButton');
+    if (!initButton) return;
+
+    try {
+        const isRepo = await checkIfRepository(currentProject.path);
+        
+        if (isRepo) {
+            // DGit 저장소가 있으면 init 버튼 숨기기
+            initButton.style.display = 'none';
+        } else {
+            // DGit 저장소가 없으면 init 버튼 보이기
+            initButton.style.display = 'inline-block';
+        }
+    } catch (error) {
+        console.error('저장소 상태 확인 실패:', error);
+        // 오류 시 init 버튼 보이기 (안전한 기본값)
+        initButton.style.display = 'inline-block';
+    }
 }
 
 // 프로젝트 데이터 로드
@@ -193,6 +289,9 @@ async function loadProjectData() {
     if (!currentProject) return;
 
     try {
+        // DGit 저장소 상태 재확인 및 init 버튼 업데이트
+        await checkRepositoryStatusAndShowInitButton();
+
         // 프로젝트 파일 스캔
         await loadProjectFiles();
 
@@ -215,6 +314,17 @@ async function loadProjectFiles() {
     try {
         // 초기 프로그레스 바 표시
         showProgressBar('fileList', 0, '프로젝트 스캔 시작...');
+        
+        // ⭐⭐ 주석 처리: 터미널 히스토리 유지를 위해 메시지 추가 안 함
+        // const terminalStatus = document.getElementById('terminalStatus');
+        // terminalStatus.innerHTML += `
+        //     <div style="margin-bottom: 8px;">
+        //         <span style="color: var(--accent-blue);">📂</span>
+        //         <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+        //         파일 스캔 시작...
+        //     </div>
+        // `;
+        // terminalStatus.scrollTop = terminalStatus.scrollHeight;
 
         // 1단계: 디렉토리 스캔 시작 (0% ~ 20%)
         showProgressBar('fileList', 5, '디렉토리를 분석하는 중...');
@@ -275,6 +385,16 @@ async function loadProjectFiles() {
             await new Promise(resolve => setTimeout(resolve, 200));
             showProgressBar('fileList', 100, `${totalFiles}개 파일 로드 완료!`);
 
+            // 상태 터미널에 파일 스캔 완료 메시지 추가
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 8px;">
+                    <span style="color: var(--accent-green);">✅</span>
+                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                    파일 스캔 완료: ${totalFiles}개 파일 발견
+                </div>
+            `;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+
             // 잠시 후 실제 파일 목록 표시
             setTimeout(() => {
                 hideLoadingSpinner('fileList');
@@ -282,11 +402,34 @@ async function loadProjectFiles() {
             }, 800);
 
         } else {
+            // 상태 터미널에 스캔 실패 메시지 추가
+            const terminalStatus = document.getElementById('terminalStatus');
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 8px;">
+                    <span style="color: var(--accent-red);">❌</span>
+                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                    파일 스캔 실패: 디렉토리를 읽을 수 없습니다
+                </div>
+            `;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+            
             hideLoadingSpinner('fileList');
             showToast('파일을 스캔할 수 없습니다', 'error');
         }
     } catch (error) {
         console.error('파일 로드 실패:', error);
+        
+        // 상태 터미널에 오류 메시지 추가
+        const terminalStatus = document.getElementById('terminalStatus');
+        terminalStatus.innerHTML += `
+            <div style="margin-bottom: 8px;">
+                <span style="color: var(--accent-red);">❌</span>
+                <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                파일 로드 오류: ${error.message}
+            </div>
+        `;
+        terminalStatus.scrollTop = terminalStatus.scrollHeight;
+        
         hideLoadingSpinner('fileList');
         showToast('파일 로드 중 오류가 발생했습니다', 'error');
     }
@@ -320,13 +463,14 @@ async function updateProjectStatus() {
         const result = await window.electron.dgit.status(currentProject.path);
 
         if (result.success) {
-            updateTerminalStatus(result.output);
+            // ⭐⭐ 수정: 상태 메시지 표시 안 함 (주석 처리)
+            // updateTerminalStatus(result.output);
         } else {
-            updateTerminalStatus('DGit 저장소가 초기화되지 않았습니다.');
+            // updateTerminalStatus('DGit 저장소가 초기화되지 않았습니다.');
         }
     } catch (error) {
         console.error('상태 업데이트 실패:', error);
-        updateTerminalStatus('상태를 확인할 수 없습니다.');
+        // updateTerminalStatus('상태를 확인할 수 없습니다.');
     }
 }
 
@@ -335,6 +479,17 @@ async function updateFileStatuses(files) {
     if (!currentProject) return;
 
     try {
+        // 먼저 저장소인지 확인
+        const isRepo = await checkIfRepository(currentProject.path);
+        
+        if (!isRepo) {
+            // DGit 저장소가 아니면 모든 파일을 'untracked'로 설정
+            files.forEach(file => {
+                file.status = 'untracked';
+            });
+            return;
+        }
+
         const result = await window.electron.dgit.status(currentProject.path);
         if (result.success) {
             const statusMap = parseGitStatus(result.output);
@@ -343,12 +498,22 @@ async function updateFileStatuses(files) {
                 if (statusMap[file.name]) {
                     file.status = statusMap[file.name];
                 } else {
+                    // 상태 맵에 없으면 커밋된 파일로 간주
                     file.status = 'committed';
                 }
+            });
+        } else {
+            // status 명령 실패 시 모든 파일을 'untracked'로 설정
+            files.forEach(file => {
+                file.status = 'untracked';
             });
         }
     } catch (error) {
         console.error('파일 상태 업데이트 실패:', error);
+        // 오류 시 모든 파일을 'unknown'으로 설정
+        files.forEach(file => {
+            file.status = 'unknown';
+        });
     }
 }
 
@@ -357,7 +522,7 @@ async function changeProject() {
     await selectNewProject();
 }
 
-// 프로젝트 스캔
+// ⭐⭐ 수정: 프로젝트 스캔 - CLI 스타일 출력 + 히스토리 유지
 async function scanProject() {
     if (!currentProject) {
         showToast('프로젝트가 선택되지 않았습니다', 'warning');
@@ -365,11 +530,165 @@ async function scanProject() {
     }
 
     try {
+        // 상태 탭으로 자동 전환
+        showTerminalTab('status');
+        
+        const terminalStatus = document.getElementById('terminalStatus');
+        const scanStartTime = Date.now();
+        
+        // ⭐ 히스토리 유지: innerHTML = 대신 += 사용
+        // 스캔 시작 메시지 추가
+        terminalStatus.innerHTML += `
+            <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border-left: 3px solid var(--accent-blue);">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="color: var(--accent-blue); font-size: 1.2rem;">🔍</span>
+                    <span style="font-weight: bold; color: var(--text-primary);">Scanning design files in: ${currentProject.path}</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px;">프로젝트: ${currentProject.name}</span>
+                </div>
+            </div>
+        `;
+        terminalStatus.scrollTop = terminalStatus.scrollHeight;
+        
         showToast('프로젝트를 스캔하고 있습니다...', 'info');
-        await loadProjectData();
-        showToast('프로젝트 스캔이 완료되었습니다', 'success');
+        
+        // 파일 스캔 실행
+        const scanResult = await window.electron.scanDirectory(currentProject.path);
+        
+        if (scanResult.success && scanResult.files) {
+            const files = scanResult.files;
+            const totalFiles = files.length;
+            const scanEndTime = Date.now();
+            const scanDuration = scanEndTime - scanStartTime;
+            
+            // 총 용량 계산
+            const totalSize = files.reduce((sum, f) => sum + (f.size || 0), 0);
+            const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
+            
+            // 파일 타입별 분류
+            const filesByType = {};
+            files.forEach(file => {
+                const ext = file.type || 'unknown';
+                if (!filesByType[ext]) {
+                    filesByType[ext] = [];
+                }
+                filesByType[ext].push(file);
+            });
+            
+            // CLI 스타일 출력
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-left: 3px solid var(--accent-green); border-radius: 4px;">
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: var(--accent-green); font-size: 1.1rem;">✓</span>
+                        <span style="font-weight: bold; color: var(--text-primary); margin-left: 8px;">
+                            Found ${totalFiles} design files (${totalSizeMB} MB)
+                        </span>
+                    </div>
+                    
+                    ${Object.entries(filesByType).length > 0 ? `
+                        <div style="margin-left: 20px; margin-bottom: 12px;">
+                            ${Object.entries(filesByType).map(([type, typeFiles]) => `
+                                <div style="margin-bottom: 4px; color: var(--text-secondary); font-size: 0.9rem;">
+                                    <span style="color: var(--accent-blue);">•</span>
+                                    <span style="margin-left: 8px;">${typeFiles.length} ${type.toUpperCase()} files</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem;">
+                        <div>Scan completed in ${scanDuration}ms</div>
+                        <div style="margin-top: 4px; color: var(--text-tertiary);">
+                            Use 'dgit show &lt;filename&gt;' for detailed file analysis
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // ⭐⭐ 새로 추가: 각 파일의 상세 분석 정보 표시
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 16px;">
+                    <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 12px;">
+                        📋 Detailed File Analysis:
+                    </div>
+            `;
+            
+            for (const file of files) {
+                try {
+                    // dgit show 명령어로 파일 상세 정보 가져오기
+                    const showResult = await window.electron.dgit.showFile(currentProject.path, file.name);
+                    
+                    if (showResult.success && showResult.output) {
+                        terminalStatus.innerHTML += `
+                            <div style="margin-bottom: 12px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border-left: 3px solid var(--accent-blue);">
+                                <pre style="margin: 0; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word;">${showResult.output}</pre>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error(`파일 분석 실패: ${file.name}`, error);
+                }
+            }
+            
+            terminalStatus.innerHTML += `</div>`;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+            
+            // ⭐⭐ 수정: loadProjectData() 호출 제거 (터미널 내용 유지)
+            // 파일 목록만 업데이트 (터미널 초기화 안 함)
+            const fileListContainer = document.getElementById('fileList');
+            if (fileListContainer) {
+                // 파일 목록 렌더링
+                const formattedFiles = files.map(file => ({
+                    name: file.name,
+                    type: file.type,
+                    size: formatFileSize(file.size),
+                    modified: formatDate(file.modified),
+                    status: 'untracked',
+                    path: file.path
+                }));
+                renderFiles(formattedFiles);
+            }
+            
+            showToast(`스캔 완료: ${totalFiles}개 파일 분석 완료 (${totalSizeMB} MB)`, 'success');
+            
+        } else {
+            // 파일이 없는 경우
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-left: 3px solid var(--accent-orange); border-radius: 4px;">
+                    <div style="color: var(--text-secondary);">No design files found.</div>
+                    <div style="margin-top: 8px; margin-left: 20px; color: var(--text-tertiary); font-size: 0.85rem;">
+                        Supported formats: .ai, .psd, .sketch, .fig, .xd, .afdesign, .afphoto
+                    </div>
+                </div>
+            `;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+            
+            showToast('디자인 파일을 찾을 수 없습니다', 'warning');
+        }
+        
     } catch (error) {
         console.error('프로젝트 스캔 실패:', error);
+        
+        // 오류 메시지를 상태 터미널에 추가
+        const terminalStatus = document.getElementById('terminalStatus');
+        terminalStatus.innerHTML += `
+            <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-left: 3px solid var(--accent-red); border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="color: var(--accent-red); font-size: 1.2rem;">❌</span>
+                    <span style="font-weight: bold; color: var(--accent-red);">Scan Error</span>
+                </div>
+                <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                    <span>[${new Date().toLocaleTimeString()}]</span>
+                </div>
+                <div style="margin-top: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 4px; font-family: monospace; font-size: 0.85rem; color: var(--accent-red);">
+                    ${error.message}
+                </div>
+            </div>
+        `;
+        terminalStatus.scrollTop = terminalStatus.scrollHeight;
+        
         showToast('프로젝트 스캔 중 오류가 발생했습니다', 'error');
     }
 }
@@ -392,5 +711,110 @@ async function showInFinder() {
     } catch (error) {
         console.error('Finder에서 보기 실패:', error);
         showToast('Finder에서 열기 중 오류가 발생했습니다', 'error');
+    }
+}
+
+// 파일 타입별 아이콘 가져오기
+function getFileIconForType(type) {
+    const icons = {
+        'psd': '🎨',
+        'ai': '✏️',
+        'sketch': '📐',
+        'fig': '🎯',
+        'xd': '💎',
+        'png': '🖼️',
+        'jpg': '🖼️',
+        'jpeg': '🖼️',
+        'gif': '🎞️',
+        'svg': '🎨',
+        'pdf': '📄',
+        'txt': '📝',
+        'md': '📖',
+        'json': '⚙️',
+        'js': '⚡',
+        'css': '🎨',
+        'html': '🌐'
+    };
+    return icons[type?.toLowerCase()] || '📄';
+}
+// 커밋 모달 표시
+function showCommitModal() {
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    showModal('변경사항 커밋', '커밋 메시지를 입력하세요', `
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 12px; color: var(--text-primary);">✍️ 커밋 메시지</h3>
+                <p style="color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+                    변경사항에 대한 설명을 간결하게 작성해주세요.
+                </p>
+                <textarea id="commitMessage" class="input-field" placeholder="예: 홈페이지 UI 개선" style="width: 100%; height: 100px; resize: vertical;"></textarea>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                <button class="btn btn-primary" onclick="executeCommit()">
+                    커밋 실행
+                </button>
+            </div>
+        </div>
+    `);
+
+    // 모달이 열리면 textarea에 자동으로 포커스
+    setTimeout(() => document.getElementById('commitMessage').focus(), 100);
+}
+
+// 커밋 실행
+async function executeCommit() {
+    const message = document.getElementById('commitMessage').value;
+
+    if (!message.trim()) {
+        showToast('커밋 메시지를 입력해주세요', 'warning');
+        return;
+    }
+
+    closeModal();
+    showToast('커밋을 진행합니다...', 'info');
+
+    try {
+        const result = await window.electron.dgit.commit(currentProject.path, message);
+
+        if (result.success) {
+            showToast('변경사항이 성공적으로 커밋되었습니다', 'success');
+            
+            // 상태 터미널에 성공 메시지 추가
+            const terminalStatus = document.getElementById('terminalStatus');
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 8px; padding: 10px; background: var(--bg-secondary); border-left: 3px solid var(--accent-green); border-radius: 4px;">
+                    <span style="color: var(--accent-green);">📌</span>
+                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px; font-weight: bold; color: var(--text-primary);">커밋 완료</span>
+                    <div style="margin-top: 6px; margin-left: 24px; color: var(--text-secondary);">${message}</div>
+                </div>
+            `;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+
+            // 프로젝트 데이터 전체 새로고침
+            await loadProjectData();
+        } else {
+            showToast(`커밋 실패: ${result.error}`, 'error');
+            
+            // 상태 터미널에 오류 메시지 추가
+            const terminalStatus = document.getElementById('terminalStatus');
+            terminalStatus.innerHTML += `
+                <div style="margin-bottom: 8px; padding: 10px; background: var(--bg-secondary); border-left: 3px solid var(--accent-red); border-radius: 4px;">
+                    <span style="color: var(--accent-red);">❌</span>
+                    <span style="color: var(--text-secondary);">[${new Date().toLocaleTimeString()}]</span>
+                    <span style="margin-left: 8px; font-weight: bold; color: var(--accent-red);">커밋 실패</span>
+                    <div style="margin-top: 6px; margin-left: 24px; color: var(--text-secondary); font-family: monospace;">${result.error}</div>
+                </div>
+            `;
+            terminalStatus.scrollTop = terminalStatus.scrollHeight;
+        }
+    } catch (error) {
+        console.error('커밋 실행 오류:', error);
+        showToast('커밋 중 오류가 발생했습니다', 'error');
     }
 }

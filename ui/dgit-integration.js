@@ -220,7 +220,8 @@ class DGitIntegration {
             const spawnOptions = {
                 cwd: cwd || process.cwd(),
                 env: { ...process.env, ...options.env },
-                shell: process.platform === 'win32', // Windows에서 shell 옵션 활성화
+                shell : false, // ⭐ 한글 경로 지원을 위해 shell 비활성화
+                // shell: process.platform === 'win32', // Windows에서 shell 옵션 활성화
                 windowsHide: true, // Windows에서 콘솔 창 숨기기
                 ...options
             };
@@ -341,8 +342,12 @@ class DGitIntegration {
     /**
      * 변경사항 커밋
      */
-    async commit(projectPath, message, options = {}) {
-        const args = ['-m', message];
+       /**
+     * 변경사항 커밋
+     */
+       async commit(projectPath, message, options = {}) {
+        // ⭐⭐ 수정: 메시지를 따옴표로 감싸서 띄어쓰기 포함
+        const args = ['-m', `"${message}"`];
 
         // 추가 옵션들
         if (options.author) {

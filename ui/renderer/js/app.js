@@ -2,6 +2,12 @@
 let currentProject = null;
 let activeContent = 'files';
 let notificationsEnabled = true;
+let isTerminalCollapsed = false;
+
+// ⭐⭐ 수정: 전역 변수를 window 객체에 노출하여 다른 스크립트에서 접근 가능하게 함
+window.currentProject = currentProject;
+window.notificationsEnabled = notificationsEnabled;
+window.isTerminalCollapsed = isTerminalCollapsed;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', function() {
@@ -14,19 +20,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 터미널 리사이저 핸들러 추가
     setupTerminalResizer();
+    
+    // ⭐ 모달 닫기 버튼 이벤트 리스너 추가
+    // index.html에서 modalCloseButton 요소를 제거했으므로, 이 리스너는 더 이상 작동하지 않습니다.
+    const modalCloseButton = document.getElementById('modalCloseButton');
+    if (modalCloseButton) {
+        modalCloseButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('닫기 버튼 클릭됨');
+            closeModal();
+        });
+    }
 });
 
 // 앱 초기화
 async function initializeApp() {
     try {
-        // 프로그레스바
         showStepProgress('splashScreen', 1, 3, ['설정 로드', '프로젝트 확인', '완료']);
 
-        // 설정 로드
         await loadAppConfig();
-
-        // 최근 프로젝트 로드
         await loadRecentProjects();
+
+        const toggleIcon = document.getElementById('toggleIcon');
+        if (toggleIcon) {
+            // 터미널 토글 아이콘 초기 상태 설정 (미축소 상태)
+            toggleIcon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l8-8 8 8" /><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>`;
+        }
 
         console.log('앱 초기화 완료');
     } catch (error) {
@@ -38,8 +58,8 @@ async function initializeApp() {
 function setupTerminalResizer() {
     const resizer = document.querySelector('.terminal-resizer');
     const terminalPanel = document.getElementById('terminalPanel');
-    const minHeight = 40; // 최소 높이 (헤더 높이)
-    const maxHeight = window.innerHeight * 0.8; // 최대 높이 (창 높이의 80%)
+    const minHeight = 40;
+    const maxHeight = window.innerHeight * 0.8;
     let isResizing = false;
     let startY, startHeight;
     let newHeight;
@@ -48,20 +68,22 @@ function setupTerminalResizer() {
     const doResize = (e) => {
         if (!isResizing) return;
 
-        // 새로운 높이 계산
         newHeight = startHeight - (e.clientY - startY);
 
-        // 이미 애니메이션 프레임이 스케줄링되어 있다면 중복 방지
         if (animationFrameId) {
             return;
         }
 
         animationFrameId = window.requestAnimationFrame(() => {
-            // 높이 제한을 적용하고 UI 업데이트
             if (newHeight > minHeight && newHeight < maxHeight) {
-                terminalPanel.style.height = `${newHeight}px`;
+                // ⭐ 수정: height로 다시 복원 (오버레이 방식에 맞게)
+                terminalPanel.style.height = `${newHeight}px`; 
+                terminalPanel.classList.remove('collapsed');
+                isTerminalCollapsed = false;
+                window.isTerminalCollapsed = isTerminalCollapsed;
+                // 축소 토글 아이콘 변경 (위쪽 화살표)
+                document.getElementById('toggleIcon').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l8-8 8 8" /><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>`;
             }
-            // 애니메이션 프레임 ID 초기화
             animationFrameId = null;
         });
     };
@@ -82,8 +104,9 @@ function setupTerminalResizer() {
         document.body.style.cursor = 'ns-resize';
         e.preventDefault();
 
+        // height를 기준으로 현재 크기를 가져옵니다.
         startY = e.clientY;
-        startHeight = terminalPanel.clientHeight;
+        startHeight = terminalPanel.clientHeight; 
 
         document.addEventListener('mousemove', doResize);
         document.addEventListener('mouseup', stopResize);
@@ -98,6 +121,7 @@ async function loadAppConfig() {
             const config = result.config;
             if (config.notifications !== undefined) {
                 notificationsEnabled = config.notifications;
+                window.notificationsEnabled = notificationsEnabled; // ⭐ window 객체 업데이트
                 updateNotificationUI();
             }
         }
@@ -138,7 +162,6 @@ async function loadRecentProjects() {
 // 홈 화면 버튼 함수들
 async function selectNewProject() {
     try {
-        // 먼저 DGit CLI 사용 가능 여부 확인
         const isDGitAvailable = await checkDGitAvailability();
 
         if (!isDGitAvailable) {
@@ -164,7 +187,6 @@ async function selectNewProject() {
                 path: result.path
             };
 
-            // DGit 저장소 초기화 확인
             const isRepo = await checkIfRepository(result.path);
 
             if (!isRepo) {
@@ -200,7 +222,6 @@ async function selectNewProject() {
 }
 
 async function openCurrentProject() {
-    // 최근 프로젝트 목록에서 가장 최근 프로젝트 가져오기
     const recentProjects = window.recentProjectsList || [];
 
     if (recentProjects.length > 0) {
@@ -224,7 +245,6 @@ async function showRecentProjects() {
         return;
     }
 
-    // 작업 시점별 그룹화 + 경로 단순화
     const groups = {
         '오늘': [],
         '어제': [],
@@ -256,25 +276,29 @@ async function showRecentProjects() {
         html += items.map(project => {
             const lastFolder = project.path ? project.path.split(/\\|\//).filter(Boolean).pop() : '';
             const tooltip = project.path || '';
-            // SVG 아이콘 매핑
             const ext = project.path ? project.path.split('.').pop().toLowerCase() : '';
-            let iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="16" y="4" rx="4" fill="#3386F6"/><rect width="10" height="6" x="2" y="2" rx="2" fill="#7EC8E3"/></svg>'; // 파란 폴더
+            let iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="16" y="4" rx="4" fill="#3386F6"/><rect width="10" height="6" x="2" y="2" rx="2" fill="#7EC8E3"/></svg>';
             if (['psd'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#0071C5"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">PSD</text></svg>';
             else if (['ai'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#FF9A00"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">Ai</text></svg>';
             else if (['figma'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="7" r="5" fill="#0acf83"/><circle cx="12" cy="17" r="5" fill="#a259ff" fill-opacity="0.7"/></svg>';
             else if (['sketch'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,3 2,9 12,21 22,9" fill="#f7c800"/></svg>';
             else if (['xd'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#a259ff"/><text x="50%" y="60%" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">XD</text></svg>';
             else if (['png','jpg','jpeg','webp','bmp','gif'].includes(ext)) iconSVG = '<svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="5" fill="#eee"/><circle cx="8" cy="8" r="3" fill="#0acf83"/><rect x="4" y="14" width="16" height="6" fill="#f7c800"/></svg>';
-            return `
-                <div class="file-item" onclick="openRecentProject('${project.path}', '${project.name}')" title="${tooltip}">
-                    <div class="file-thumbnail">${iconSVG}</div>
-                    <div class="file-info">
-                        <div class="file-name">${project.name}</div>
-                        <div class="file-details">${lastFolder} • ${formatDate(project.lastOpened)}</div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+             // ⭐ 안전한 데이터 전달을 위해 data 속성 사용
+    return `
+    <div class="file-item" 
+         data-project-path="${project.path.replace(/"/g, '&quot;')}" 
+         data-project-name="${project.name.replace(/"/g, '&quot;')}"
+         onclick="openRecentProjectSafe(this)" 
+         title="${tooltip}">
+        <div class="file-thumbnail">${iconSVG}</div>
+        <div class="file-info">
+            <div class="file-name">${project.name}</div>
+            <div class="file-details">${lastFolder} • ${formatDate(project.lastOpened)}</div>
+        </div>
+    </div>
+`;
+}).join('');
         html += '</div>';
     });
 
@@ -282,12 +306,48 @@ async function showRecentProjects() {
         <div class="file-list">
             ${html}
         </div>
+        <div style="display: flex; justify-content: center; margin-top: 20px;">
+            <button class="btn btn-secondary" onclick="closeModal()">닫기</button>
+        </div>
     `);
 }
 
-function openRecentProject(path, name) {
+// 안전한 최근 프로젝트 열기
+function openRecentProjectSafe(element) {
+    const path = element.getAttribute('data-project-path');
+    const name = element.getAttribute('data-project-name');
+    openRecentProject(path, name);
+}
+
+async function openRecentProject(path, name){
     closeModal();
-    openProject({ name, path });
+
+    const projectInfo = {name, path};
+
+    // 콘솔에 로그 출력 (디버깅용)
+    console.log('Opening recent Project:', projectInfo);
+
+    // DGIT 저장소 존재 여부 확인
+    try {
+        const statusResult = await window.electron.dgit.status(projectInfo.path);
+
+        console.log('status result: ', statusResult);
+
+        //DGIT 저장소가 없는경우 초기화 프롬프트 표시
+        if (!statusResult.success) {
+            showDGitInitPrompt(projectInfo);
+            return;
+        }
+
+    } catch (error) {
+        console.error('error checking Dgit status: ', error);
+        //DGit 명령 실행 실패시 초기화 프롬프트 표시
+        showDGitInitPrompt(projectInfo);
+        return;
+    }
+
+    //DGit 저장소가 있는경우 정상적으로 프로젝트 열기
+    await openProjectDirectly(projectInfo);
 }
 
 // 홈으로 돌아가기
@@ -295,56 +355,109 @@ function goHome() {
     document.getElementById('workspace').classList.remove('active');
     document.getElementById('homeScreen').style.display = 'flex';
     currentProject = null;
+    window.currentProject = null; // ⭐ window 객체 업데이트
 }
 
 // 사이드바 콘텐츠 표시
 function showContent(contentType) {
-    // 모든 콘텐츠 섹션 숨기기
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.remove('active');
         section.classList.add('hidden');
     });
 
-    // 사이드바 활성화 상태 변경
     document.querySelectorAll('.nav-link').forEach(item => {
         item.classList.remove('active');
     });
 
-    // 선택된 콘텐츠 표시
     const contentElement = document.getElementById(`${contentType}Content`);
     if (contentElement) {
         contentElement.classList.remove('hidden');
         contentElement.classList.add('active');
+        
+        // ⭐ 정보 탭 렌더링 추가
+        if (contentType === 'info') {
+            renderSupportedExtensions(); // ui.js에서 추가된 함수 호출
+        }
+        // ⭐ 추가 끝
     }
 
-    // 클릭된 네비게이션 링크 활성화
-    if (event && event.target) {
-        event.target.closest('.nav-link').classList.add('active');
+    // ⭐⭐ 수정: 안전한 event 접근
+    try {
+        if (typeof event !== 'undefined' && event && event.target) {
+            const navLink = event.target.closest('.nav-link');
+            if (navLink) {
+                navLink.classList.add('active');
+            }
+        }
+    } catch (e) {
+        // event 접근 실패 시 무시
+        console.log('Event access failed, ignoring:', e.message);
     }
 
     activeContent = contentType;
 }
 
-// 터미널 탭 전환
+// 터미널 탭 전환 - ⭐⭐ 수정: event 객체 의존성 제거
 function showTerminalTab(tabType) {
-    document.querySelectorAll('.terminal-tab').forEach(tab => {
+    // 모든 탭에서 active 클래스 제거
+    const allTabs = document.querySelectorAll('.terminal-tab');
+    allTabs.forEach(tab => {
         tab.classList.remove('active');
     });
 
-    event.target.closest('.terminal-tab').classList.add('active');
+    // 해당 탭 찾아서 active 클래스 추가
+    const targetTab = document.querySelector(`.terminal-tab[onclick*="${tabType}"]`);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
 
-    if (tabType === 'log') {
-        document.getElementById('terminalLog').classList.remove('hidden');
-        document.getElementById('terminalStatus').classList.add('hidden');
+    // 터미널 콘텐츠 전환
+    const terminalLog = document.getElementById('terminalLog');
+    const terminalStatus = document.getElementById('terminalStatus');
+    
+    if (terminalLog && terminalStatus) {
+        if (tabType === 'log') {
+            terminalLog.classList.remove('hidden');
+            terminalStatus.classList.add('hidden');
+        } else {
+            terminalLog.classList.add('hidden');
+            terminalStatus.classList.remove('hidden');
+        }
+    }
+}
+
+// 터미널 축소/확장 토글 함수
+function toggleTerminalCollapse() {
+    const terminalPanel = document.getElementById('terminalPanel');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const resizer = document.querySelector('.terminal-resizer');
+    
+    isTerminalCollapsed = !isTerminalCollapsed;
+    window.isTerminalCollapsed = isTerminalCollapsed; // ⭐ window 객체 업데이트
+
+    if (isTerminalCollapsed) {
+        // ⭐ 수정: height로 다시 복원 (오버레이 방식에 맞게)
+        terminalPanel.style.height = '40px'; 
+        terminalPanel.classList.add('collapsed');
+        // 확장 아이콘 변경 (아래쪽 화살표)
+        toggleIcon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9l-8 8-8-8"/><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>`;
+        resizer.style.display = 'none';
+        showToast('터미널을 축소했습니다', 'info');
     } else {
-        document.getElementById('terminalLog').classList.add('hidden');
-        document.getElementById('terminalStatus').classList.remove('hidden');
+        // ⭐ 수정: height로 복원 (오버레이 방식에 맞게)
+        terminalPanel.style.height = '200px'; 
+        terminalPanel.classList.remove('collapsed');
+        // 축소 아이콘 변경 (위쪽 화살표)
+        toggleIcon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15l8-8 8 8" /><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>`;
+        resizer.style.display = 'block';
+        showToast('터미널을 확장했습니다', 'info');
     }
 }
 
 // 알림 토글
 function toggleNotifications() {
     notificationsEnabled = !notificationsEnabled;
+    window.notificationsEnabled = notificationsEnabled; // ⭐ window 객체 업데이트
 
     const toggleButton = document.getElementById('notificationToggle');
     const toggleText = document.getElementById('notificationToggleText');
@@ -353,10 +466,16 @@ function toggleNotifications() {
         toggleButton.className = 'btn btn-primary';
         toggleText.textContent = '켜짐';
         showToast('알림이 활성화되었습니다', 'success');
+        
+        // ⭐⭐ 수정: 켜짐 상태일 때만 테스트 알림 표시
+        window.electron.showNotification('DGit MAC 알림 테스트', '시스템 알림이 성공적으로 활성화되었습니다.');
+        
     } else {
         toggleButton.className = 'btn btn-secondary';
         toggleText.textContent = '꺼짐';
-        showToast('알림이 비활성화되었습니다', 'warning');
+        showToast('알림이 비활성화되었습니다', 'info');
+        
+        // ⭐⭐ 수정: 꺼짐 상태일 때는 테스트 알림 표시 안 함 (이 줄 삭제됨)
     }
 
     // 설정 저장
@@ -401,6 +520,10 @@ document.addEventListener('keydown', function(e) {
             case 'r':
                 e.preventDefault();
                 showToast('상태를 새로고침했습니다', 'success');
+                break;
+            case 't':
+                e.preventDefault();
+                toggleTerminalCollapse();
                 break;
         }
     }

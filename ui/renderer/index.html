@@ -7,6 +7,27 @@
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/animations.css">
+    <style>
+        /* 모달 오버레이가 다른 모든 요소 위에 표시되도록 가장 높은 Z-index 지정 */
+        #modalOverlay {
+            z-index: 10000; 
+        }
+        
+        /* 모달 내부 콘텐츠가 오버레이보다 위에 표시되도록 설정 */
+        #modalOverlay .modal {
+            position: relative;
+            z-index: 10001;
+        }
+        
+        /* 이미지 미리보기 모달은 그 다음 Z-index를 갖도록 지정 */
+        #imagePreviewModal {
+            z-index: 9999; 
+        }
+        /* 모달이 활성화된 경우 body 스크롤 방지 (JS로 토글) */
+        .modal-open {
+            overflow: hidden !important;
+        }
+    </style>
 </head>
 <body data-theme="dark">
 <div class="splash-screen" id="splashScreen">
@@ -126,9 +147,13 @@
                                 <button class="btn btn-secondary" onclick="changeProject()">프로젝트 변경</button>
                                 <button class="btn btn-secondary" onclick="scanProject()">스캔</button>
                                 <button class="btn btn-secondary" onclick="showInFinder()">Finder에서 보기</button>
+                                <button class="btn btn-warning" onclick="initializeCurrentProject()" id="initButton" style="display: none;">DGit 초기화</button>
                                 <button class="btn btn-primary" onclick="commitChanges()">변경사항 커밋</button>
                             </div>
                         </div>
+                        
+                        <div class="commit-health-dashboard" id="commitHealthDashboard">
+                            </div>
                         <div class="file-list" id="fileList"></div>
                     </div>
 
@@ -175,6 +200,82 @@
                                     '커밋 히스토리' 탭에서 특정 커밋을 선택하고 '복원' 버튼을 누르면 해당 시점으로 돌아갈 수 있습니다.
                                 </p>
                             </div>
+                            
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon" style="color: var(--accent-red); font-weight: bold;">⚠️</span>
+                                    <h4>복원 및 초기화 주의사항</h4>
+                                </div>
+                                <p>
+                                    <strong>'복원'</strong> 기능은 현재 프로젝트의 모든 변경사항을 마지막 커밋 상태로 되돌립니다. 이 과정에서 커밋되지 않은 파일 변경 내용은 **영구적으로 삭제**됩니다. 신중하게 사용하세요.
+                                </p>
+                                <p style="margin-top: 10px;">
+                                    <strong>DGit 저장소 초기화</strong>는 숨겨진 버전 관리 폴더를 생성합니다. 프로젝트에 민감한 파일을 포함하는 경우, Gitignore 파일을 수동으로 편집하여 관리 대상에서 제외할 수 있습니다.
+                                </p>
+                            </div>
+
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">🟢</span>
+                                    <h4>파일 상태 표시 설명</h4>
+                                </div>
+                                <div class="command-list">
+                                    <div class="command-item">
+                                        <div class="file-status" style="background: var(--accent-green);"></div>
+                                        <p><strong>Committed / Added:</strong> 저장소에 기록되거나 스테이징된 파일.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <div class="file-status" style="background: var(--accent-orange);"></div>
+                                        <p><strong>Modified:</strong> 파일이 수정되었지만 아직 커밋되지 않은 상태.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <div class="file-status" style="background: var(--text-secondary);"></div>
+                                        <p><strong>Untracked:</strong> 새로 생성되어 DGit이 아직 추적하지 않는 파일. '모든 파일 추가' 필요.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <div class="file-status" style="background: var(--accent-red);"></div>
+                                        <p><strong>Deleted:</strong> 파일이 삭제되었거나 제거된 상태.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">⌨️</span>
+                                    <h4>키보드 단축키 (macOS)</h4>
+                                </div>
+                                <div class="command-list">
+                                    <div class="command-item">
+                                        <kbd>⌘ + N</kbd>
+                                        <p>새로운 DGit 프로젝트 폴더를 선택하고 엽니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>⌘ + O</kbd>
+                                        <p>가장 최근에 작업한 프로젝트를 다시 로드합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>⌘ + S</kbd>
+                                        <p>모든 변경사항을 스테이징하고 커밋 모달을 엽니다 (DGit Commit).</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>⌘ + W</kbd>
+                                        <p>현재 워크스페이스를 닫고 홈 화면으로 돌아갑니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>⌘ + R</kbd>
+                                        <p>현재 프로젝트의 파일 및 상태 정보를 새로고침합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>⌘ + T</kbd>
+                                        <p>터미널 패널을 확장하거나 축소합니다.</p>
+                                    </div>
+                                    <div class="command-item">
+                                        <kbd>Esc</kbd>
+                                        <p>열려 있는 모달 창을 닫거나, 모달이 없으면 홈 화면으로 돌아갑니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="guide-item">
                                 <div class="guide-title">
                                     <span class="guide-icon">⚡</span>
@@ -224,9 +325,49 @@
                     
                     <div id="infoContent" class="content-section hidden">
                         <h3>정보</h3>
-                        <div class="settings-group">
-                            <p>버전: 1.0.0</p>
-                            <p>제작: 3pxTeam</p>
+                        <div class="guide-section" style="padding-top: 0;"> 
+                            
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">✨</span>
+                                    <h4>DGit MAC 정보</h4>
+                                </div>
+                                <div class="settings-group"> 
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <div class="setting-title">앱 버전</div>
+                                            <div class="setting-desc">현재 설치된 DGit MAC의 버전입니다.</div>
+                                        </div>
+                                        <span class="commit-version" style="background: var(--accent-purple);">v1.0.0</span>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <div class="setting-title">제작</div>
+                                            <div class="setting-desc">DGit MAC을 제작한 팀입니다.</div>
+                                        </div>
+                                        <span style="font-size: 1rem; font-weight: 500; color: var(--accent-green);">3pxTeam</span>
+                                    </div>
+                                </div>
+                            </div>
+                    
+                            <div class="guide-item">
+                                <div class="guide-title">
+                                    <span class="guide-icon">🖼️</span>
+                                    <h4>지원 파일 확장자 목록</h4>
+                                </div>
+                                <p style="margin-bottom: 12px;">
+                                    우리 앱은 다음 확장자를 가진 디자인 및 이미지 파일을 스캔하고 버전 관리합니다.
+                                </p>
+                                
+                                <h5 style="margin: 16px 0 8px 0; color: var(--accent-blue); font-size: 1rem;">🎨 디자인 파일</h5>
+                                <div class="command-list" id="designFileExtensions">
+                                    </div>
+                                
+                                <h5 style="margin: 16px 0 8px 0; color: var(--accent-green); font-size: 1rem;">🖼️ 이미지 파일</h5>
+                                <div class="command-list" id="imageFileExtensions">
+                                    </div>
+                            </div>
+                            
                         </div>
                     </div>
                 </div>
@@ -252,12 +393,21 @@
                                 <span class="terminal-tab-text">상태</span>
                             </div>
                         </div>
+                        
+                        <div class="terminal-controls">
+                            <button class="terminal-control-btn" id="terminalCollapseToggle" onclick="toggleTerminalCollapse()">
+                                <span class="control-icon" id="toggleIcon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18 15l-6-6-6 6"/>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+                        
                     </div>
                     <div class="terminal-content-wrapper">
-                        <div class="terminal-content" id="terminalContent">
-                            <div id="terminalLog">커밋 로그가 여기에 표시됩니다...</div>
-                            <div id="terminalStatus" class="hidden">상태 정보가 여기에 표시됩니다...</div>
-                        </div>
+                        <div id="terminalLog">커밋 로그가 여기에 표시됩니다...</div>
+                        <div id="terminalStatus" class="hidden">상태 정보가 여기에 표시됩니다...</div>
                     </div>
                 </div>
             </div>
@@ -273,9 +423,7 @@
         </div>
         <div class="modal-body" id="modalBody">모달 내용</div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeModal()">취소</button>
-            <button class="btn btn-primary" onclick="confirmModal()">확인</button>
-        </div>
+            </div>
     </div>
 </div>
 
@@ -283,7 +431,7 @@
 
 <div class="image-preview-modal" id="imagePreviewModal" onclick="closeImagePreview()">
     <button class="image-preview-close" onclick="closeImagePreview()">×</button>
-    <div class="image-preview-content" onclick="event.stopPropagation()">
+    <div class="image-preview-body" id="imagePreviewContent">
         <img class="image-preview-img" id="imagePreviewImg" src="" alt="">
         <div class="image-preview-info" id="imagePreviewInfo"></div>
     </div>

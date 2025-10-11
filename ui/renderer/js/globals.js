@@ -17,6 +17,7 @@ let showContent;
 let showTerminalTab;
 let toggleNotifications;
 let saveNotificationSettings;
+let toggleTerminalCollapse; 
 
 // project.js 함수들
 let checkDGitAvailability;
@@ -25,6 +26,9 @@ let selectProjectWithoutDGit;
 let openProjectWithoutDGit;
 let loadProjectFilesOnly;
 let initializeRepository;
+let initializeCurrentProject;
+let executeInitialization;
+let checkRepositoryStatusAndShowInitButton;
 let openProject;
 let showDGitInitPrompt;
 let openProjectDirectly;
@@ -60,7 +64,7 @@ let selectFile;
 let showModal;
 let closeModal;
 let confirmModal;
-let showToast;
+let showToast; // ⭐ 추가됨
 let updateTerminalStatus;
 let viewCommit;
 let viewCommitDiff;
@@ -85,31 +89,16 @@ let showKeyboardShortcuts;
 let toggleFullscreen;
 let toggleDevTools;
 
-// utils.js 함수들
-let formatFileSize;
-let formatDate;
-let formatRelativeTime;
-let formatAbsoluteTime;
-let truncateString;
-let getFileExtension;
-let removeFileExtension;
-let formatNumber;
-let formatPercent;
-let debounce;
-let throttle;
-let deepClone;
-let isEqual;
-let uniqueArray;
-let shuffleArray;
-let generateRandomString;
-let generateUUID;
-
 // 전역 변수들
 let currentProject;
 let activeContent;
 let notificationsEnabled;
 let recentProjectsList;
 let currentModalCallback;
+let isTerminalCollapsed; 
+
+// ⭐⭐ 수정: window 객체에 노출된 변수 및 객체를 전역에서 사용될 수 있도록 추가
+let window; 
 
 // 유틸리티 객체들
 let ColorUtils;
