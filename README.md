@@ -1,69 +1,140 @@
-# DGit: 대용량 파일 버전 관리 효율성 개선을 위한 확장 시스템
+# DGit: Version Control for Design Files
 
 <p align="center">
     <img src="ui/assets/icon.png?raw=true" width="120" height="120" alt="DGit logo">
 </p>
 
-`DGit`은 기존 버전 관리 시스템의 대용량 바이너리 파일 처리 비효율성을 극복하기 위해 개발된 지능형 Git 확장 시스템입니다. 파일 전체를 압축하거나 저장하는 방식을 넘어, 파일 내부의 **핵심 데이터 구조를 분석하여 변경사항을 효율적으로 추적하고 관리**합니다.
+`DGit` is a version control system built for large design files like PSD, AI, and Sketch. Unlike traditional systems that struggle with binary files, DGit reads the internal structure of files to track changes efficiently.
 
-## 🚀 프로젝트 개요
+## What DGit Does
 
-본 프로젝트는 특히 PSD, AI 등과 같은 디자인 파일의 비효율적인 용량 관리 문제를 해결하는 데 중점을 두고 있습니다. `DGit`은 다음을 통해 프로젝트의 성능과 협업 편의성을 극대화합니다.
+DGit solves the storage problem of design files through smart compression and layer-level change detection.
 
-* **지능형 압축 알고리즘:** 파일 특성에 따라 LZ4 초고속 압축과 바이너리 델타 압축을 유연하게 적용합니다.
-* **레이어 기반 변경 추적:** PSD 파일의 레이어 정보를 정교하게 파싱하여, 변경된 레이어 데이터만을 저장함으로써 커밋 용량을 획기적으로 절감합니다.
+**Key Features:**
+* **Smart compression**: Picks the right method based on file size
+  - Files under 100MB: Binary delta compression (saves space)
+  - Files over 100MB: Fast LZ4 snapshots (saves time)
+* **Layer tracking**: Analyzes PSD layers to find what changed
+* **Fast and efficient**: Compresses files quickly while saving disk space
 
-## 🛠️ 주요 기능
+## Two Ways to Use DGit
 
-* **스마트 델타 로직:** 이전 버전과 현재 버전의 레이어 정보를 비교하여 추가/삭제/수정된 변경사항을 정확히 분석합니다.
-* **통합형 사용자 인터페이스:** CLI(Command-Line Interface)를 통한 터미널 환경과 직관적인 GUI를 모두 제공하여 사용자의 접근성을 높였습니다.
-* **안정적인 복원 시스템:** 복잡한 델타 데이터를 사용하여 원본 파일을 완벽하게 재구성하고 복원하는 로직을 구현합니다.
+### CLI (Command Line)
+Simple commands for version control:
+```bash
+dgit init          # Start a project
+dgit add .         # Add files
+dgit commit "msg"  # Save version
+dgit status        # Check changes
+dgit log           # View history
+```
 
-## ⚙️ 사용 방법
+### GUI (Visual Interface)
+Easy-to-use interface with:
+- Drag and drop files
+- Visual commit history
+- Project management
 
-`DGit`은 릴리즈를 통해 배포됩니다.
+## Installation
 
-### **1. 설치**
+**From Releases:**
+Download the latest version from [GitHub Releases](https://github.com/3pxTeam/DGIT/releases).
 
-[최신 릴리즈 페이지에서 `DGit`을 다운로드](https://github.com/3pxTeam/DGIT/releases)하십시오.
-설치 프로그램에 대한 자세한 사용 방법은 각 릴리즈 페이지에서 별도로 제공됩니다.
-
-또는,
-
-### **개발 환경에서 빌드 및 실행**
-
-#### CLI: 프로젝트 루트 디렉토리에서 아래 명령어를 실행하여 DGit CLI를 빌드하고 실행할 수 있습니다.
-```Bash
-
-# 빌드 후 실행 (파일명 dgit으로 지정)
+**From Source:**
+```bash
+# Build DGit
 go build -o dgit
-./dgit --help
 
-# 또는 빌드 없이 실행
+# Or run directly
 go run main.go --help
 ```
-#### GUI: ui 디렉토리로 이동하여 필요한 패키지를 설치한 후 실행합니다.
-```Bash
 
-cd ui
-npm install
-npm start
-```
-
-### **2. 커밋 및 복원**
+## Quick Start
 
 ```bash
-# DGit 저장소 초기화
+# Start a new repository
 dgit init
 
-# 파일 추가 및 커밋
+# Add files and create a commit
 dgit add .
-dgit commit -m "초기 프로젝트 구조 커밋"
+dgit commit "Initial design"
 
-# 파일 복원
-dgit restore <file_path>
+# Check what changed
+dgit status
+
+# View commit history
+dgit log
+
+# See details of a specific version
+dgit show v1
 ```
 
-## 🤝 기여
+## Supported Files
 
-본 프로젝트의 발전은 커뮤니티의 기여를 통해 이루어집니다. 버그 보고, 기능 개선 제안 등 모든 형태의 기여를 환영합니다.
+| **Full Support** | **Basic Support** | **General Files** |
+|------------------|-------------------|-------------------|
+| Adobe Photoshop (`.psd`) | Sketch (`.sketch`) | Images |
+| Adobe Illustrator (`.ai`) | Figma (`.fig`) | Other binaries |
+| | Adobe XD (`.xd`) | |
+
+*Full Support: Analyzes metadata and tracks layers  
+Basic Support: Tracks file versions only*
+
+## How It Works
+
+DGit stores your files in a clean structure:
+
+```
+.dgit/
+├── snapshots/      # LZ4 compressed files
+├── deltas/         # Binary delta files
+├── commits/        # Commit information (JSON)
+├── staging/        # Files ready to commit
+├── temp/           # Temporary files
+├── config          # Settings
+└── HEAD            # Current version
+```
+
+## Built With
+
+**Core Engine:**
+- Go 1.21+
+- LZ4 compression (pierrec/lz4)
+- Binary diff (gabstv/go-bsdiff)
+- PSD parser (oov/psd)
+
+**CLI Tools:**
+- Command framework (spf13/cobra)
+- Terminal colors (fatih/color)
+
+**GUI:**
+- Electron + Node.js
+- HTML/CSS/JavaScript
+
+## What's New in v1.0
+
+- ✅ **Better status command**: Now works correctly with LZ4 files
+- ✅ **Pure Go binary diff**: No external programs needed
+- ✅ **Smart file strategy**: Automatically picks the best compression
+- ✅ **Cleaner code**: Removed unused folders and old code
+- ✅ **Faster for large files**: Optimized for files over 100MB
+
+## Contributing
+
+We welcome contributions:
+- 🐛 [Report bugs](https://github.com/3pxTeam/DGIT/issues)
+- 💡 Suggest new features
+- 📖 Share how you use DGit
+- 🔧 Submit pull requests
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+All dependencies use permissive licenses (MIT, BSD, Apache 2.0) - see [NOTICE.md](NOTICE.md) for full information.
+
+---
+
+<p align="center">
+Built by 3pxTeam | <a href="https://github.com/3pxTeam">GitHub</a>
+</p>
