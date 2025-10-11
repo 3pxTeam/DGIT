@@ -453,60 +453,49 @@ func (s *StagingArea) generateFileHash(path string) (string, error) {
 
 	hasher := sha256.New()
 
-	// Add file info (path, size, mod time)
-	if stat, err := file.Stat(); err == nil {
-		// Include file basic info in hash
-		hasher.Write([]byte(fmt.Sprintf("path:%s:size:%d:modtime:%d:",
-			path, stat.Size(), stat.ModTime().Unix())))
-
-		// Adaptive hash strategy based on file size
-		if stat.Size() > LargeFileSize { // 500MB+ large files
-			// First 64KB + last 64KB + middle sample
-			buffer := make([]byte, HashSampleSize)
-
-			// File start
-			n, _ := file.Read(buffer)
-			hasher.Write(buffer[:n])
-
-			// Middle part (50% position)
-			if stat.Size() > 128*1024 {
-				file.Seek(stat.Size()/2, io.SeekStart)
-				n, _ = file.Read(buffer[:4096]) // 4KB sample
-				hasher.Write(buffer[:n])
-			}
-
-			// File end
-			if stat.Size() > 128*1024 {
-				file.Seek(-HashSampleSize, io.SeekEnd)
-				n, _ = file.Read(buffer)
-				hasher.Write(buffer[:n])
-			}
-
-		} else if stat.Size() > 10*1024*1024 { // 10MB~500MB medium files
-			// First 32KB + last 32KB
-			buffer := make([]byte, 32*1024)
-
-			// File start
-			n, _ := file.Read(buffer)
-			hasher.Write(buffer[:n])
-
-			// File end
-			if stat.Size() > 64*1024 {
-				file.Seek(-32*1024, io.SeekEnd)
-				n, _ = file.Read(buffer)
-				hasher.Write(buffer[:n])
-			}
-
-		} else { // 10MB or smaller files
-			// Full file hash
-			_, err = io.Copy(hasher, file)
-			if err != nil {
-				return "", fmt.Errorf("failed to hash file content: %w", err)
-			}
-		}
-	} else {
-		// If file info unavailable, hash path only
+	stat, err := file.Stat()
+	if err != nil {
 		hasher.Write([]byte(path))
+		return hex.EncodeToString(hasher.Sum(nil)), nil
+	}
+
+	if stat.Size() < 10*1024*1024 {
+		_, err = io.Copy(hasher, file)
+		if err != nil {
+			return "", fmt.Errorf("failed to hash file content: %w", err)
+		}
+	} else if stat.Size() > 500*1024*1024 {
+		hasher.Write([]byte(fmt.Sprintf("path:%s:size:%d:", path, stat.Size())))
+
+		buffer := make([]byte, 64*1024)
+
+		n, _ := file.Read(buffer)
+		hasher.Write(buffer[:n])
+
+		if stat.Size() > 128*1024 {
+			file.Seek(stat.Size()/2, io.SeekStart)
+			n, _ = file.Read(buffer[:4096])
+			hasher.Write(buffer[:n])
+		}
+
+		if stat.Size() > 128*1024 {
+			file.Seek(-64*1024, io.SeekEnd)
+			n, _ = file.Read(buffer)
+			hasher.Write(buffer[:n])
+		}
+	} else { // 10MB~500MB: 시작 + 끝 해시
+		hasher.Write([]byte(fmt.Sprintf("path:%s:size:%d:", path, stat.Size())))
+
+		buffer := make([]byte, 32*1024)
+
+		n, _ := file.Read(buffer)
+		hasher.Write(buffer[:n])
+
+		if stat.Size() > 64*1024 {
+			file.Seek(-32*1024, io.SeekEnd)
+			n, _ = file.Read(buffer)
+			hasher.Write(buffer[:n])
+		}
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
