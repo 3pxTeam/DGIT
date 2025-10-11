@@ -14,8 +14,8 @@ import (
 
 	"dgit/internal/log"
 
+	"github.com/gabstv/go-bsdiff/pkg/bspatch"
 	"github.com/klauspost/compress/zstd"
-	"github.com/kr/binarydist"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -1234,8 +1234,8 @@ func (rm *RestoreManager) applyBsdiffPatch(oldFile, patchFile, newFile string) e
 	defer new.Close()
 
 	// Apply binary patch
-	if err := binarydist.Patch(old, new, patch); err != nil {
-		return fmt.Errorf("binarydist patch failed: %w", err)
+	if err := bspatch.Reader(old, new, patch); err != nil {
+		return fmt.Errorf("bspatch failed: %w", err)
 	}
 
 	return nil
