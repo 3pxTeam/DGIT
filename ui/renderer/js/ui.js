@@ -1,6 +1,5 @@
-// ui.js 파일 내 추가
 
-// 지원 가능한 파일 확장자 데이터 정의 (SVG 아이콘으로 수정)
+// 지원 가능한 파일 확장자 데이터 정의 
 const supportedExtensionsData = {
     design: [
         { 
@@ -115,29 +114,65 @@ function renderCommits(commits) {
     commitList.innerHTML = commits.map((commit, index) => {
         const authorInitial = commit.author ? commit.author.charAt(0).toUpperCase() : 'U';
         const isLast = index === commits.length - 1;
+        
+        // 파일 미리보기 이미지 (기본 그라데이션)
+        const commitImageStyle = `
+            background: linear-gradient(135deg, 
+                ${index % 3 === 0 ? '#007aff, #5856d6' : index % 3 === 1 ? '#30d158, #00c7be' : '#ff9f0a, #ff375f'});
+        `;
 
         return `
             <div class="commit-item" onclick="viewCommit('${commit.hash}')">
-                <div class="commit-timeline">
-                    <div class="commit-dot"></div>
-                    ${!isLast ? '<div class="commit-line"></div>' : ''}
-                </div>
-                <div class="commit-avatar">${authorInitial}</div>
-                <div class="commit-details">
-                    <div class="commit-message">${commit.message || '커밋 메시지 없음'}</div>
-                    <div class="commit-meta">
-                        <span class="commit-date">${commit.date || '날짜 없음'}</span>
-                        ${commit.version ? `<span class="commit-version">v${commit.version}</span>` : ''}
-                        <span class="commit-hash">${commit.hash}</span>
+                <div class="commit-image" style="${commitImageStyle}">
+                    <div class="commit-image-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" style="opacity: 0.6;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
                     </div>
-                    <div class="commit-stats">
-                        ${commit.files > 0 ? `<span class="commit-stat">📄 ${commit.files} files</span>` : ''}
+                </div>
+                <div class="commit-content">
+                    <div class="commit-message">${(commit.message || '커밋 메시지 없음').replace(/^["']|["']$/g, '')}</div>
+                    <div class="commit-meta">
+                        <span class="commit-date">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            ${commit.date || '날짜 없음'}
+                        </span>
+                        ${commit.version ? `<span class="commit-version">v${commit.version}</span>` : ''}
+                        <span class="commit-hash">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                            ${commit.hash}
+                        </span>
+                        ${commit.files > 0 ? `
+                            <span class="commit-files">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                                    <polyline points="13 2 13 9 20 9"></polyline>
+                                </svg>
+                                ${commit.files} 파일
+                            </span>
+                        ` : ''}
                     </div>
                     <div class="commit-actions">
-                        <button class="commit-action-btn" onclick="event.stopPropagation(); restoreToCommit('${commit.hash}')">
+                        <button class="commit-action-btn restore-btn" onclick="event.stopPropagation(); restoreToCommit('${commit.hash}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                            </svg>
                             복원
                         </button>
-                        <button class="commit-action-btn" onclick="event.stopPropagation(); viewCommitDiff('${commit.hash}')">
+                        <button class="commit-action-btn diff-btn" onclick="event.stopPropagation(); viewCommitDiff('${commit.hash}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
                             변경사항
                         </button>
                     </div>
@@ -292,7 +327,9 @@ async function viewCommit(hash) {
 
         if (result.success) {
             const lines = result.output.split('\n');
-            const commitMessage = lines.find(line => line.trim() && !line.startsWith('commit') && !line.startsWith('Author') && !line.startsWith('Date')) || '커밋 메시지 없음';
+            let commitMessage = lines.find(line => line.trim() && !line.startsWith('commit') && !line.startsWith('Author') && !line.startsWith('Date')) || '커밋 메시지 없음';
+            // 따옴표 제거
+            commitMessage = commitMessage.replace(/^["']|["']$/g, '').trim();
 
             commitDetails += `
                 <h4 style="margin: 20px 0 16px 0;">커밋 메시지:</h4>

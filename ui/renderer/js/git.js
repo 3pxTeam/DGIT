@@ -204,12 +204,14 @@ async function restoreFiles() {
                 </p>
                 
                 <div style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
-                    ${commits.map(commit => `
-                        <div class="commit-item-selectable" onclick="selectCommitForRestore('${commit.version}', '${commit.hash}', '${commit.message.replace(/'/g, "\\'")}')">
+                    ${commits.map(commit => {
+                        const cleanMessage = (commit.message || '').replace(/^["']|["']$/g, '').replace(/'/g, "\\'");
+                        return `
+                        <div class="commit-item-selectable" onclick="selectCommitForRestore('${commit.version}', '${commit.hash}', '${cleanMessage}')">
                             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg-secondary); border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-secondary)'">
                                 <div>
                                     <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">
-                                        v${commit.version} - ${commit.message}
+                                        v${commit.version} - ${cleanMessage.replace(/\\'/g, "'")}
                                     </div>
                                     <div style="font-size: 0.85rem; color: var(--text-secondary);">
                                         ${commit.hash} • ${commit.date} • ${commit.files} 파일
@@ -222,7 +224,8 @@ async function restoreFiles() {
                                 </div>
                             </div>
                         </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
                 
                 <div style="display: flex; gap: 12px; justify-content: center;">
@@ -435,6 +438,57 @@ function getGitStatusText(statusCode) {
         '!': 'ignored'
     };
     return statusMap[statusCode] || 'unknown';
+}
+
+// ⭐⭐ 새로 추가: 특정 커밋으로 복원
+async function restoreToCommit(hash) {
+    if (!currentProject) {
+        showToast('프로젝트가 선택되지 않았습니다', 'warning');
+        return;
+    }
+
+    try {
+        // 커밋 정보 가져오기
+        const logResult = await window.electron.dgit.log(currentProject.path, 100);
+        if (!logResult.success) {
+            showToast('커밋 정보를 불러올 수 없습니다', 'error');
+            return;
+        }
+
+        const commits = parseCommitLog(logResult.output);
+        const targetCommit = commits.find(c => c.hash === hash);
+        
+        if (!targetCommit) {
+            showToast('커밋을 찾을 수 없습니다', 'error');
+            return;
+        }
+
+        // 복원 확인 모달
+        showModal('복원 확인', '정말 복원하시겠습니까?', `
+            <div style="padding: 20px; text-align: center;">
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">⚠️</div>
+                    <h3 style="margin-bottom: 12px; color: var(--text-primary);">버전 ${targetCommit.version}로 복원</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 8px;">
+                        "${targetCommit.message}"
+                    </p>
+                    <p style="color: var(--accent-orange); font-size: 0.9rem;">
+                        현재 작업 중인 모든 변경사항이 사라집니다.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+                    <button class="btn btn-danger" onclick="performRestoreToVersion('${targetCommit.version}')" style="background: #ff3b30 !important;">
+                        복원 실행
+                    </button>
+                </div>
+            </div>
+        `);
+        
+    } catch (error) {
+        console.error('복원 준비 실패:', error);
+        showToast('복원 준비 중 오류가 발생했습니다', 'error');
+    }
 }
 
 // 커밋 로그 파싱

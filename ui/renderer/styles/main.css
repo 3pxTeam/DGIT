@@ -292,13 +292,12 @@ body {
 
 /* 스크롤이 적용될 메인 컨테이너 */
 .content-area {
-    flex: 1; 
-    flex-shrink: 0; /* ⭐⭐ 보강: 수축 방지 ⭐⭐ */
+    flex: 1;
     padding: 20px;
     display: flex;
     flex-direction: column;
     min-height: 0; 
-    overflow-y: hidden; 
+    overflow-y: hidden;
 }
 
 /* content-area의 자식 요소들이 스크롤되지 않도록 고정 */
@@ -438,18 +437,14 @@ body {
 
 /* 터미널 패널 */
 .terminal-panel {
-    position: absolute; /* 절대 위치로 오버레이 */
-    bottom: 0; /* 화면 하단에 고정 */
-    left: 0;
-    right: 0;
-    z-index: 100; /* 다른 콘텐츠 위에 표시 */
-    
-    height: 200px; /* 높이를 height로 제어 */
+    flex-shrink: 0; /* 축소되지 않도록 */
+    height: 200px; /* 기본 높이 */
     background: var(--bg-tertiary);
     display: flex;
     flex-direction: column;
     border-top: 1px solid var(--border-color);
     transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* height에 transition 적용 */
+    position: relative; /* 리사이저의 기준점 */
 }
 
 /* 터미널 축소 상태 스타일 */
@@ -467,10 +462,11 @@ body {
     height: 8px;
     cursor: ns-resize;
     position: absolute;
-    top: -4px;
+    top: 0;
     left: 0;
     right: 0;
     z-index: 20;
+    transform: translateY(-4px); /* 터미널 상단에 위치 */
     -webkit-app-region: no-drag;
 }
 
@@ -654,33 +650,34 @@ body {
 }
 
 /* ⭐⭐ 추가: 파일 목록과 커밋 히스토리 스크롤바 */
-#fileList,
-#commitList {
+.file-list,
+.commit-list {
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: calc(100vh - 300px); /* 화면 높이에 맞게 조정 */
+    flex: 1;
+    min-height: 0;
 }
 
 /* 파일 목록과 커밋 히스토리 스크롤바 스타일 */
-#fileList::-webkit-scrollbar,
-#commitList::-webkit-scrollbar {
+.file-list::-webkit-scrollbar,
+.commit-list::-webkit-scrollbar {
     width: 8px;
 }
 
-#fileList::-webkit-scrollbar-track,
-#commitList::-webkit-scrollbar-track {
+.file-list::-webkit-scrollbar-track,
+.commit-list::-webkit-scrollbar-track {
     background: var(--bg-secondary);
     border-radius: 4px;
 }
 
-#fileList::-webkit-scrollbar-thumb,
-#commitList::-webkit-scrollbar-thumb {
+.file-list::-webkit-scrollbar-thumb,
+.commit-list::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 4px;
 }
 
-#fileList::-webkit-scrollbar-thumb:hover,
-#commitList::-webkit-scrollbar-thumb:hover {
+.file-list::-webkit-scrollbar-thumb:hover,
+.commit-list::-webkit-scrollbar-thumb:hover {
     background: var(--text-tertiary);
 }
 

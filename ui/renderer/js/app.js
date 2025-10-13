@@ -289,7 +289,8 @@ async function showRecentProjects() {
     <div class="file-item" 
          data-project-path="${project.path.replace(/"/g, '&quot;')}" 
          data-project-name="${project.name.replace(/"/g, '&quot;')}"
-         onclick="openRecentProjectSafe(this)" 
+         onclick="openRecentProjectSafe(this, event)" 
+         style="cursor: pointer; position: relative; z-index: 100;"
          title="${tooltip}">
         <div class="file-thumbnail">${iconSVG}</div>
         <div class="file-info">
@@ -303,7 +304,7 @@ async function showRecentProjects() {
     });
 
     showModal('지난 프로젝트', '최근 작업한 프로젝트를 선택하세요', `
-        <div class="file-list">
+        <div class="file-list" style="padding-top: 20px;">
             ${html}
         </div>
         <div style="display: flex; justify-content: center; margin-top: 20px;">
@@ -313,9 +314,14 @@ async function showRecentProjects() {
 }
 
 // 안전한 최근 프로젝트 열기
-function openRecentProjectSafe(element) {
+function openRecentProjectSafe(element, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
     const path = element.getAttribute('data-project-path');
     const name = element.getAttribute('data-project-name');
+    console.log('Opening project:', name, path); // 디버깅용
     openRecentProject(path, name);
 }
 
@@ -436,7 +442,7 @@ function toggleTerminalCollapse() {
     window.isTerminalCollapsed = isTerminalCollapsed; // ⭐ window 객체 업데이트
 
     if (isTerminalCollapsed) {
-        // ⭐ 수정: height로 다시 복원 (오버레이 방식에 맞게)
+        // 터미널 축소
         terminalPanel.style.height = '40px'; 
         terminalPanel.classList.add('collapsed');
         // 확장 아이콘 변경 (아래쪽 화살표)
@@ -444,7 +450,7 @@ function toggleTerminalCollapse() {
         resizer.style.display = 'none';
         showToast('터미널을 축소했습니다', 'info');
     } else {
-        // ⭐ 수정: height로 복원 (오버레이 방식에 맞게)
+        // 터미널 확장
         terminalPanel.style.height = '200px'; 
         terminalPanel.classList.remove('collapsed');
         // 축소 아이콘 변경 (위쪽 화살표)

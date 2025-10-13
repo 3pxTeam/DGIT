@@ -97,7 +97,7 @@ let recentProjectsList;
 let currentModalCallback;
 let isTerminalCollapsed; 
 
-// ⭐⭐ 수정: window 객체에 노출된 변수 및 객체를 전역에서 사용될 수 있도록 추가
+// window 객체에 노출된 변수 및 객체를 전역에서 사용될 수 있도록 추가
 let window; 
 
 // 유틸리티 객체들
