@@ -1,6 +1,6 @@
 // Git 관련 함수들
 
-// ⭐⭐ 수정: 변경사항 커밋 - 간소화 및 개선
+//  수정: 변경사항 커밋 - 간소화 및 개선
 async function commitChanges() {
     if (!currentProject) {
         showToast('프로젝트가 선택되지 않았습니다', 'warning');
@@ -43,7 +43,7 @@ async function commitChanges() {
     }
 }
 
-// ⭐⭐ 새로 추가: 커밋 실행 함수
+//  새로 추가: 커밋 실행 함수
 async function executeCommit() {
     const messageInput = document.getElementById('commitMessageInput');
     const message = messageInput ? messageInput.value.trim() : '';
@@ -172,7 +172,7 @@ async function executeCommit() {
     }
 }
 
-// ⭐⭐ 수정: 파일 복원 - DGit restore 명령어 사용
+//  수정: 파일 복원 - DGit restore 명령어 사용
 async function restoreFiles() {
     if (!currentProject) {
         showToast('프로젝트가 선택되지 않았습니다', 'warning');
@@ -240,7 +240,7 @@ async function restoreFiles() {
     }
 }
 
-// ⭐⭐ 새로 추가: 복원할 커밋 선택
+//  새로 추가: 복원할 커밋 선택
 function selectCommitForRestore(version, hash, message) {
     closeModal();
     
@@ -303,7 +303,7 @@ async function addAllFiles() {
     }
 }
 
-// ⭐⭐ 수정: 버전으로 복원 실행
+//  수정: 버전으로 복원 실행
 async function performRestoreToVersion(version) {
     closeModal();
 
@@ -440,7 +440,7 @@ function getGitStatusText(statusCode) {
     return statusMap[statusCode] || 'unknown';
 }
 
-// ⭐⭐ 새로 추가: 특정 커밋으로 복원
+//  새로 추가: 특정 커밋으로 복원
 async function restoreToCommit(hash) {
     if (!currentProject) {
         showToast('프로젝트가 선택되지 않았습니다', 'warning');
@@ -505,11 +505,11 @@ function parseCommitLog(output) {
                 commits.push(currentCommit);
             }
             // DGit 형식: "commit 4ea7d8384946 (v2)"
-            const commitMatch = line.match(/commit\s+([a-f0-9]+)\s*\(([^)]+)\)/);
+            const commitMatch = line.match(/commit\s+([a-f0-9]+)\s*\(v?(\d+)\)/); //  v? 추가
             if (commitMatch) {
                 currentCommit = {
                     hash: commitMatch[1].substring(0, 7),
-                    version: commitMatch[2],
+                    version: commitMatch[2], //  숫자만 저장 (v 제거됨)
                     message: '',
                     author: '',
                     date: '',

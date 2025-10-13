@@ -114,7 +114,12 @@ function renderCommits(commits) {
     commitList.innerHTML = commits.map((commit, index) => {
         const authorInitial = commit.author ? commit.author.charAt(0).toUpperCase() : 'U';
         const isLast = index === commits.length - 1;
-        
+
+        //  커밋 메시지 안전하게 처리
+        let cleanMessage = (commit.message || '커밋 메시지 없음').trim();
+        // 앞뒤 따옴표 제거
+        cleanMessage = cleanMessage.replace(/^["']|["']$/g, '');
+
         // 파일 미리보기 이미지 (기본 그라데이션)
         const commitImageStyle = `
             background: linear-gradient(135deg, 
@@ -133,7 +138,7 @@ function renderCommits(commits) {
                     </div>
                 </div>
                 <div class="commit-content">
-                    <div class="commit-message">${(commit.message || '커밋 메시지 없음').replace(/^["']|["']$/g, '')}</div>
+                    <div class="commit-message">${cleanMessage}</div>
                     <div class="commit-meta">
                         <span class="commit-date">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -218,9 +223,9 @@ function showModal(title, subtitle, body, confirmCallback = null) {
     document.getElementById('modalBody').innerHTML = body;
     document.getElementById('modalOverlay').classList.add('show');
 
-    // ⭐⭐ 수정: 모달이 열릴 때 body 스크롤 방지 및 클릭 차단 방지 ⭐⭐
+    //  수정: 모달이 열릴 때 body 스크롤 방지 및 클릭 차단 방지 
     document.body.classList.add('modal-open');
-    // ⭐⭐ 수정 끝 ⭐⭐
+    //  수정 끝 
 
     // 확인 버튼 콜백 설정
     window.currentModalCallback = confirmCallback;
@@ -231,9 +236,9 @@ function showModal(title, subtitle, body, confirmCallback = null) {
 function closeModal() {
     document.getElementById('modalOverlay').classList.remove('show');
     
-    // ⭐⭐ 수정: 모달이 닫힐 때 body 스크롤 허용 ⭐⭐
+    //  수정: 모달이 닫힐 때 body 스크롤 허용 
     document.body.classList.remove('modal-open');
-    // ⭐⭐ 수정 끝 ⭐⭐
+    //  수정 끝 
     
     window.currentModalCallback = null;
 }
@@ -307,7 +312,7 @@ function showToast(message, type = 'info', duration = 2000) {
 function updateTerminalStatus(statusOutput) {
     const terminalStatus = document.getElementById('terminalStatus');
     if (terminalStatus) {
-        // ⭐⭐⭐ 수정: 인라인 스타일로 font-size 10px 강제 적용 ⭐⭐⭐
+        //  수정: 인라인 스타일로 font-size 10px 강제 적용 
         terminalStatus.innerHTML = `<pre style="margin: 0; font-family: inherit; font-size: 10px;">${statusOutput}</pre>`;
     }
 }
@@ -317,40 +322,82 @@ async function viewCommit(hash) {
     if (!currentProject) return;
 
     try {
-        // 실제 커밋 정보 가져오기
-        const result = await window.electron.dgit.command('show', ['--name-only', hash], currentProject.path);
+        //  DGit log 명령어로 커밋 정보 가져오기
+        const logResult = await window.electron.dgit.log(currentProject.path, 100);
 
         let commitDetails = `
             <div style="padding: 20px;">
                 <h4 style="margin-bottom: 16px;">커밋 해시: ${hash}</h4>
         `;
 
-        if (result.success) {
-            const lines = result.output.split('\n');
-            let commitMessage = lines.find(line => line.trim() && !line.startsWith('commit') && !line.startsWith('Author') && !line.startsWith('Date')) || '커밋 메시지 없음';
-            // 따옴표 제거
-            commitMessage = commitMessage.replace(/^["']|["']$/g, '').trim();
+        if (logResult.success && logResult.output) {
+            //  parseCommitLog 함수로 커밋 파싱
+            const commits = parseCommitLog(logResult.output);
+            const targetCommit = commits.find(c => c.hash === hash || c.hash.startsWith(hash));
 
-            commitDetails += `
-                <h4 style="margin: 20px 0 16px 0;">커밋 메시지:</h4>
-                <p style="color: var(--text-secondary); background: var(--bg-tertiary); padding: 12px; border-radius: 6px;">
-                    ${commitMessage}
-                </p>
-            `;
+            if (targetCommit && targetCommit.message) {
+                //  커밋 메시지 안전하게 처리
+                let cleanMessage = targetCommit.message.trim();
+                cleanMessage = cleanMessage.replace(/^["']|["']$/g, '');
+
+                commitDetails += `
+                    <h4 style="margin: 20px 0 16px 0;">커밋 정보:</h4>
+                    <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: var(--accent-blue);">버전:</strong> 
+                            <span style="color: var(--text-primary);">v${targetCommit.version}</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: var(--accent-blue);">작성자:</strong> 
+                            <span style="color: var(--text-primary);">${targetCommit.author || '알 수 없음'}</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <strong style="color: var(--accent-blue);">날짜:</strong> 
+                            <span style="color: var(--text-primary);">${targetCommit.date || '알 수 없음'}</span>
+                        </div>
+                        ${targetCommit.files > 0 ? `
+                            <div>
+                                <strong style="color: var(--accent-blue);">파일:</strong> 
+                                <span style="color: var(--text-primary);">${targetCommit.files}개</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <h4 style="margin: 20px 0 16px 0;">커밋 메시지:</h4>
+                    <p style="color: var(--text-secondary); background: var(--bg-tertiary); padding: 16px; border-radius: 8px; line-height: 1.6; border-left: 4px solid var(--accent-green);">
+                        ${cleanMessage}
+                    </p>
+                `;
+            } else {
+                commitDetails += `
+                    <p style="color: var(--text-secondary); text-align: center; padding: 20px;">
+                        커밋 정보를 찾을 수 없습니다.
+                    </p>
+                `;
+            }
         } else {
             commitDetails += `
-                <p style="color: var(--text-secondary);">커밋 정보를 불러올 수 없습니다.</p>
+                <p style="color: var(--text-secondary); text-align: center; padding: 20px;">
+                    커밋 정보를 불러올 수 없습니다.
+                </p>
             `;
         }
 
-        commitDetails += `</div>`;
+        commitDetails += `
+            <div style="display: flex; justify-content: center; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeModal()">닫기</button>
+            </div>
+        </div>`;
 
         showModal('커밋 상세정보', `커밋 ${hash}`, commitDetails);
     } catch (error) {
         console.error('커밋 정보 로드 실패:', error);
         showModal('커밋 상세정보', `커밋 ${hash}`, `
             <div style="padding: 20px;">
-                <p style="color: var(--text-secondary);">커밋 정보를 불러오는 중 오류가 발생했습니다.</p>
+                <p style="color: var(--text-secondary); text-align: center;">커밋 정보를 불러오는 중 오류가 발생했습니다.</p>
+                <div style="display: flex; justify-content: center; margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="closeModal()">닫기</button>
+                </div>
             </div>
         `);
     }
@@ -842,7 +889,7 @@ function renderSupportedExtensions() {
     `).join('');
 }
 
-// ============ 대시보드 렌더링 함수 추가 ⭐⭐⭐
+// ============ 대시보드 렌더링 함수 추가 
 
 /**
  * 파일 상태 카운트를 기반으로 Commit Health Bar와 Summary Cards를 렌더링합니다.
@@ -902,7 +949,7 @@ function renderCommitHealthDashboard(stats) {
     dashboard.innerHTML = summaryCards + healthBar;
 }
 
-// ⭐⭐⭐ 대시보드 렌더링 함수 추가 끝 ⭐⭐⭐
+//  대시보드 렌더링 함수 추가 끝 
 
 
 // ============ 기존 함수들 계속 ============
